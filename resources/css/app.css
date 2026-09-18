@@ -1,0 +1,116 @@
+@import 'tailwindcss';
+
+/*
+ * SUMBER PEMINDAIAN KELAS.
+ *
+ * ============================================================================
+ * KENAPA MENUNJUK DIREKTORI, DAN KENAPA storage/framework/views DIKELUARKAN
+ * ============================================================================
+ *
+ * Susunan sebelumnya ikut memindai `storage/framework/views/*.php`, yaitu
+ * Blade yang sudah terkompilasi. Isinya berubah-ubah: kosong di server yang
+ * baru di-clone, penuh di mesin pengembang, dan kerap menyimpan sisa
+ * kompilasi halaman versi LAMA.
+ *
+ * Akibatnya hasil build ikut berubah-ubah. Dengan folder itu penuh, CSS
+ * membengkak ~16 KB oleh kelas yang sudah tidak dipakai halaman mana pun —
+ * hanya tertinggal di berkas kompilasi usang.
+ *
+ * Seluruh kelas yang benar-benar dipakai tetap terpungut dari sumber
+ * aslinya di `../views`, jadi tidak ada yang hilang. Yang berubah: hasil
+ * build sekarang SAMA PERSIS di mana pun dijalankan, tidak bergantung pada
+ * apa yang kebetulan tersisa di folder cache. Sudah diperiksa dengan
+ * membandingkan hasil build saat cache view kosong dan saat penuh.
+ */
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views';
+@source '../views';
+@source '../js';
+
+/*
+ * ============================================================================
+ * SISTEM WARNA RESMI CAHAYAOS
+ * ============================================================================
+ *
+ * Nilai-nilai di bawah DIPINDAHKAN dari blok `tailwind.config` yang sebelumnya
+ * ditulis ulang di dalam lima berkas Blade, masing-masing dengan salinannya
+ * sendiri. Karena tiap salinan berdiri sendiri, tiga di antaranya tertinggal
+ * pada palet lama (#0B4F63 / #F5C518) sementara aplikasi utama sudah memakai
+ * warna resmi dari logo (#03586D / #FEB900) — halaman login dan halaman Cek
+ * Simpanan tampil dengan warna yang berbeda dari sisa aplikasinya, dan tidak
+ * ada yang menyadarinya karena tidak ada satu tempat pun untuk membandingkan.
+ *
+ * Sekarang hanya ada satu sumber, dan seluruh halaman mengikutinya.
+ *
+ * `cahaya-*` dan `koperasi-*` SENGAJA bernilai sama dan namanya tidak
+ * dihapus: puluhan halaman sudah memakai kedua penamaan itu, dan menyeragamkan
+ * namanya berarti menyentuh berkas-berkas yang sebenarnya tidak bermasalah.
+ *
+ * Tailwind v4 membaca token ini langsung dari CSS — tidak ada lagi
+ * tailwind.config.js. Penamaannya mengikuti aturan v4: `--color-x` menghasilkan
+ * kelas `bg-x`, `text-x`, `border-x`, berikut varian transparansinya (`/20`).
+ */
+@theme {
+    /*
+     * Rangkaian huruf dipertahankan APA ADANYA dari perilaku sebelumnya.
+     * Inter disebut lebih dulu tetapi TIDAK PERNAH dimuat dari mana pun —
+     * tidak ada tautan Google Fonts di satu berkas pun — jadi yang benar-benar
+     * dipakai selama ini adalah ui-sans-serif bawaan sistem. Itu dibiarkan:
+     * memuat Inter sekarang akan mengubah tampilan seluruh halaman sekaligus
+     * menambah lagi ketergantungan ke server luar, dua hal yang justru sedang
+     * dikurangi oleh perubahan ini.
+     */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Warna utama — diambil dari logo resmi YBM PLN UP3 Bengkulu. */
+    --color-cahaya-primary: #03586d;
+    --color-cahaya-primary-dark: #02485a;
+    --color-cahaya-accent: #feb900;
+    --color-cahaya-secondary: #0292b9;
+
+    /* Penamaan lama modul Koperasi — nilainya sengaja identik. */
+    --color-koperasi-primary: #03586d;
+    --color-koperasi-accent: #feb900;
+
+    /* Latar & permukaan */
+    --color-primary-light: #e3eef1;
+    --color-gold-light: #fff3d6;
+    --color-surface-bg: #f5f8f9;
+
+    /* Teks & garis */
+    --color-text-main: #17313a;
+    --color-text-secondary: #64777d;
+    --color-border-soft: #dce6e9;
+
+    /* Status — warna semantik, terpisah dari warna merek. */
+    --color-status-success: #198754;
+    --color-status-warning: #feb900;
+    --color-status-danger: #c0392b;
+    --color-status-info: #0292b9;
+}
+
+/*
+ * Aturan cetak. Dipindahkan dari blok <style> di layouts/app.blade.php supaya
+ * ikut terbundel, bukan dikirim ulang mentah pada setiap permintaan halaman.
+ *
+ * Laporan koperasi rutin dicetak untuk Rapat Anggota, jadi aturan ini bukan
+ * pemanis: tanpanya, sidebar dan topbar ikut memakan kertas.
+ */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    aside,
+    header {
+        display: none !important;
+    }
+
+    main {
+        padding: 0 !important;
+    }
+
+    body {
+        background: white !important;
+    }
+}

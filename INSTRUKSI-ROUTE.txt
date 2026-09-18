@@ -1,0 +1,107 @@
+==================================================
+INSTRUKSI MANUAL - TAMBAH ROUTE PENGATURAN SISTEM
+==================================================
+
+File yang perlu diubah: routes/web.php
+(Ini SATU-SATUNYA file yang perlu Bapak edit manual)
+
+
+==================================================
+LANGKAH 1 - TAMBAH USE STATEMENT
+==================================================
+
+Cari baris ini di bagian paling atas file (daftar "use"):
+
+    use App\Http\Controllers\SalesTransactionController;
+    use App\Http\Controllers\TrainingController;
+
+Sisipkan 1 baris baru DI ANTARA keduanya, jadi:
+
+    use App\Http\Controllers\SalesTransactionController;
+    use App\Http\Controllers\SystemSettingsController;
+    use App\Http\Controllers\TrainingController;
+
+
+==================================================
+LANGKAH 2 - TAMBAH BLOK ROUTE
+==================================================
+
+Cari bagian PALING BAWAH file. Akan terlihat seperti ini:
+
+        // Modul K5+ — placeholder dulu
+        Route::get('/{modul}', [KoperasiPlaceholderController::class, 'show'])
+            ->where('modul', 'tidak-ada')
+            ->name('placeholder');
+    });
+});
+
+Sisipkan blok route baru di bawah ini TEPAT SEBELUM baris terakhir
+"});" (penutup grup auth paling luar). Jadi urutannya:
+
+        // Modul K5+ — placeholder dulu
+        Route::get('/{modul}', [KoperasiPlaceholderController::class, 'show'])
+            ->where('modul', 'tidak-ada')
+            ->name('placeholder');
+    });
+
+    // ==========================================================
+    // PENGATURAN SISTEM — halaman terpisah, KHUSUS ADMIN.
+    // Guard admin ada di dalam SystemSettingsController (abort_unless).
+    // ==========================================================
+    Route::prefix('pengaturan-sistem')->name('pengaturan-sistem.')->group(function () {
+        Route::get('/', [SystemSettingsController::class, 'index'])->name('index');
+        Route::post('/backup', [SystemSettingsController::class, 'storeBackup'])->name('backup.store');
+        Route::get('/backup/{filename}/download', [SystemSettingsController::class, 'downloadBackup'])->name('backup.download');
+        Route::delete('/backup/{filename}', [SystemSettingsController::class, 'destroyBackup'])->name('backup.destroy');
+        Route::get('/restore', [SystemSettingsController::class, 'showRestore'])->name('restore.show');
+        Route::post('/restore', [SystemSettingsController::class, 'restoreDatabase'])->name('restore.store');
+    });
+});
+
+CATATAN: hanya ada SATU "});" di paling akhir file (penutup grup
+Route::middleware('auth')->group(...)). Pastikan blok baru di atas
+diletakkan SEBELUM "});" itu, bukan sesudahnya.
+
+
+==================================================
+LANGKAH 3 - JALANKAN DI TERMINAL (folder cahayaos)
+==================================================
+
+    php artisan migrate
+    php artisan optimize:clear
+    php artisan route:list --name=pengaturan-sistem
+    php artisan test
+
+Route yang harus muncul di route:list (6 baris):
+
+    GET|HEAD   pengaturan-sistem ................ pengaturan-sistem.index
+    POST       pengaturan-sistem/backup ......... pengaturan-sistem.backup.store
+    GET|HEAD   pengaturan-sistem/backup/{filename}/download . pengaturan-sistem.backup.download
+    DELETE     pengaturan-sistem/backup/{filename} .......... pengaturan-sistem.backup.destroy
+    GET|HEAD   pengaturan-sistem/restore ........ pengaturan-sistem.restore.show
+    POST       pengaturan-sistem/restore ........ pengaturan-sistem.restore.store
+
+
+==================================================
+LANGKAH 4 - VERIFIKASI AKHIR
+==================================================
+
+1. Buka: http://cahayaos.test/public/koperasi/laporan
+   Pastikan TIDAK ada lagi error "Route [pengaturan-sistem.index] not defined."
+
+2. Login sebagai Admin, klik menu "Pengaturan Sistem" di sidebar.
+   Halaman harus tampil dengan:
+   - System Health (status DB, PHP, Laravel, storage, dst)
+   - Backup Database (tombol "+ Buat Backup Sekarang")
+   - Log Aktivitas (kosong dulu - baru mulai tercatat sejak sekarang)
+
+3. Coba klik "+ Buat Backup Sekarang" - pastikan file .sql muncul
+   di tabel dan bisa di-download.
+
+4. Coba ubah 1 data (misal edit 1 Peserta) - lalu buka lagi
+   Pengaturan Sistem, pastikan muncul baris baru di Log Aktivitas
+   dengan IP tercatat.
+
+5. Login sebagai Pendamping/Pimpinan - pastikan menu
+   "Pengaturan Sistem" TIDAK muncul di sidebar mereka, dan kalau
+   coba akses langsung via URL, muncul error 403 (bukan bisa masuk).

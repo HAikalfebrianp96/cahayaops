@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — CahayaOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        // ============================================================
+                        // OFFICIAL CAHAYAOS COLOR SYSTEM — diambil dari LOGO RESMI.
+                        // 'cahaya-*' dan 'koperasi-*' SENGAJA disamakan nilainya (bukan
+                        // dihapus namanya) supaya SELURUH halaman lain yang sudah pakai
+                        // kelas ini (Dashboard, HPP, Penjualan, Laporan, dst) otomatis
+                        // ikut berubah tanpa perlu file-file itu disentuh satu-satu.
+                        // ============================================================
+                        'cahaya-primary': '#03586D',      // Primary Teal
+                        'cahaya-primary-dark': '#02485A', // Primary Dark
+                        'cahaya-accent': '#FEB900',        // Accent Gold
+                        'cahaya-secondary': '#0292B9',     // Secondary Blue (icon/link/info)
+                        'koperasi-primary': '#03586D',
+                        'koperasi-accent': '#FEB900',
+
+                        // Token tambahan sesuai Official Color System
+                        'primary-light': '#E3EEF1',
+                        'gold-light': '#FFF3D6',
+                        'surface-bg': '#F5F8F9',
+                        'text-main': '#17313A',
+                        'text-secondary': '#64777D',
+                        'border-soft': '#DCE6E9',
+                        'status-success': '#198754',
+                        'status-warning': '#FEB900',
+                        'status-danger': '#C0392B',
+                        'status-info': '#0292B9',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            aside, header { display: none !important; }
+            main { padding: 0 !important; }
+            body { background: white !important; }
+        }
+    </style>
+</head>
+<body class="bg-surface-bg text-text-main">
+    <div class="min-h-screen flex">
+
+        
+        
+        <aside class="w-64 bg-cahaya-primary text-white flex-shrink-0 hidden md:flex md:flex-col no-print">
+
+            <div class="px-6 py-5 border-b border-white/10 flex items-center gap-3">
+                <div class="h-9 w-9 rounded-full bg-white flex items-center justify-center overflow-hidden p-1 flex-shrink-0">
+                    <img src="http://127.0.0.1:8000/images/logo-cahayaos.jpg" class="h-full w-full object-contain">
+                </div>
+                <div>
+                    <p class="text-[15px] font-bold leading-tight tracking-wide">CahayaOS</p>
+                    <p class="text-[11px] text-white/55">YBM PLN UP3 Bengkulu</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+                                    
+                    <a href="http://127.0.0.1:8000/dashboard"
+                       class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-semibold transition relative
+                              bg-primary-light text-cahaya-primary">
+                                                    <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-cahaya-accent"></span>
+                                                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10" />
+                        </svg>
+                        Dashboard
+                    </a>
+
+                    
+                    <p class="px-3 pt-5 pb-1.5 text-[10.5px] font-semibold tracking-[0.12em] text-white/40 uppercase">
+                        Kegiatan
+                    </p>
+
+                    
+                    <div class="flex items-center">
+                        <a href="http://127.0.0.1:8000/participants"
+                           class="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 rounded-lg transition
+                                  text-white/85 hover:bg-white/10">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4" />
+                            </svg>
+                            <span class="min-w-0">
+                                <span class="block text-[13px] font-semibold leading-tight">Cahaya Preneur</span>
+                                <span class="block text-[10px] leading-[1.3] mt-0.5 text-white/45">Program Ekonomi YBM PLN UP3 Bengkulu</span>
+                            </span>
+                        </a>
+                        <button type="button" onclick="toggleSidebarGroup('cp')"
+                                id="toggle-cp" aria-controls="group-cp" aria-expanded="false"
+                                aria-label="Buka/tutup submenu Cahaya Preneur"
+                                class="flex-shrink-0 p-2 rounded-lg transition text-white/85 hover:bg-white/10">
+                            <svg id="chevron-cp"
+                                 class="w-3.5 h-3.5 flex-shrink-0 transition-transform "
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="group-cp" class="hidden ml-4 pl-3 mt-1 mb-2 space-y-0.5 border-l border-white/10">
+                                                                                <a href="http://127.0.0.1:8000/participants"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Peserta
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/pendampings"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Pendamping
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/omzet"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Monitoring Omzet
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/pendampingan"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Monitoring Pendampingan
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/laporan"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Laporan
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/pengaturan"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Pengaturan
+                            </a>
+                                            </div>
+
+                    
+                    <div class="flex items-center mt-0.5">
+                        <a href="http://127.0.0.1:8000/dashboard?modul=koperasi"
+                           class="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 rounded-lg transition relative
+                                  text-white/85 hover:bg-white/10">
+                                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9h.01M9 12h.01M9 15h.01" />
+                            </svg>
+                            <span class="min-w-0">
+                                <span class="block text-[13px] font-semibold leading-tight">Koperasi Cahaya</span>
+                                <span class="block text-[10px] leading-[1.3] mt-0.5 text-white/45">Usaha Bersama, Maju Bersama</span>
+                            </span>
+                        </a>
+                        <button type="button" onclick="toggleSidebarGroup('kop')"
+                                id="toggle-kop" aria-controls="group-kop" aria-expanded="false"
+                                aria-label="Buka/tutup submenu Koperasi Cahaya"
+                                class="flex-shrink-0 p-2 rounded-lg transition text-white/85 hover:bg-white/10">
+                            <svg id="chevron-kop"
+                                 class="w-3.5 h-3.5 flex-shrink-0 transition-transform "
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="group-kop" class="hidden ml-4 pl-3 mt-1 space-y-0.5 border-l border-white/10">
+                                                                                <a href="http://127.0.0.1:8000/koperasi/anggota"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Anggota
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/koperasi/unit-usaha"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Unit Usaha
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/koperasi/penjualan"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Penjualan
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/koperasi/pengeluaran"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Pengeluaran
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/koperasi/keuangan"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Keuangan
+                            </a>
+                                                                                <a href="http://127.0.0.1:8000/koperasi/laporan"
+                               class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                      text-white/75 hover:bg-white/10">
+                                                                Laporan
+                            </a>
+                                            </div>
+
+                    
+                    <p class="px-3 pt-5 pb-1.5 text-[10.5px] font-semibold tracking-[0.12em] text-white/40 uppercase">
+                        Sistem
+                    </p>
+                                                                    <a href="http://127.0.0.1:8000/pengaturan-sistem"
+                           class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                  text-white/85 hover:bg-white/10">
+                                                        Pengaturan
+                        </a>
+                                                                    <a href="http://127.0.0.1:8000/manajemen-user"
+                           class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                  text-white/85 hover:bg-white/10">
+                                                        Manajemen User
+                        </a>
+                                                                    <a href="http://127.0.0.1:8000/backup-database"
+                           class="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition relative
+                                  text-white/85 hover:bg-white/10">
+                                                        Backup Database
+                        </a>
+                                                </nav>
+
+            <div class="px-3 py-4 border-t border-white/10 space-y-0.5">
+                <div class="px-3 py-2 flex items-center gap-2">
+                    <div class="h-7 w-7 rounded-full bg-cahaya-accent text-cahaya-primary-dark flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                        AY
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[12.5px] font-medium text-white truncate">Admin YBM</p>
+                        <p class="text-[10.5px] text-white/50">Admin YBM</p>
+                    </div>
+                </div>
+                <a href="http://127.0.0.1:8000/akun/ganti-password"
+                   class="block px-3 py-2 rounded-lg text-[13px] font-medium text-white/80 hover:bg-white/10">
+                    Ganti Password
+                </a>
+                <form method="POST" action="http://127.0.0.1:8000/logout">
+                    <input type="hidden" name="_token" value="yuiYqoe6BmpDEjWLLg9T7MKOET5GejGQ6lAOozuy" autocomplete="off">                    <button type="submit" class="w-full text-left px-3 py-2 rounded-lg text-[13px] font-medium text-white/80 hover:bg-white/10">
+                        Keluar
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        
+        <div class="flex-1 flex flex-col min-w-0">
+
+            
+            <header class="h-16 bg-white border-b border-border-soft flex items-center justify-between px-4 md:px-6 no-print flex-shrink-0">
+                <div class="min-w-0">
+                    <p class="text-[11px] text-text-secondary font-medium leading-tight">
+                        CahayaOS &middot; Cahaya Preneur
+                    </p>
+                    <h1 class="text-[17px] font-semibold text-gray-800 leading-tight truncate">Dashboard</h1>
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-[13px] font-medium text-gray-800 leading-tight">Admin YBM</p>
+                        <p class="text-[11px] text-text-secondary leading-tight">Admin YBM</p>
+                    </div>
+                    <div class="h-9 w-9 rounded-full bg-cahaya-primary text-white flex items-center justify-center text-[12px] font-bold">
+                        AY
+                    </div>
+                </div>
+            </header>
+
+            
+            <main class="flex-1 p-4 md:p-6">
+                
+                <div class="space-y-6">
+
+    
+    <div class="flex items-start justify-between flex-wrap gap-3">
+        <div>
+            <h2 class="text-[22px] font-bold text-text-main">Selamat datang, Admin 👋</h2>
+            <p class="text-sm text-text-secondary mt-0.5">
+                                    Cahaya Preneur — Program Ekonomi YBM PLN UP3 Bengkulu
+                            </p>
+        </div>
+
+        
+        <div class="flex gap-2 flex-wrap">
+                            <a href="http://127.0.0.1:8000/participants/create" class="text-[12.5px] font-medium text-white bg-cahaya-primary px-3 py-2 rounded-lg hover:opacity-90 transition">+ Tambah Peserta</a>
+                <a href="http://127.0.0.1:8000/pendampingan" class="text-[12.5px] font-medium text-cahaya-primary bg-primary-light px-3 py-2 rounded-lg hover:opacity-80 transition">Catat Pendampingan</a>
+                <a href="http://127.0.0.1:8000/omzet" class="text-[12.5px] font-medium text-cahaya-primary bg-primary-light px-3 py-2 rounded-lg hover:opacity-80 transition">Input Omzet</a>
+                    </div>
+    </div>
+
+    
+            <div class="inline-flex items-center gap-1 bg-white border border-border-soft rounded-xl p-1 shadow-sm">
+            <a href="http://127.0.0.1:8000/dashboard"
+               class="px-4 py-2 rounded-lg text-[13px] font-semibold transition
+                      bg-cahaya-primary text-white">
+                Cahaya Preneur
+            </a>
+            <a href="http://127.0.0.1:8000/dashboard?modul=koperasi"
+               class="px-4 py-2 rounded-lg text-[13px] font-semibold transition
+                      text-text-secondary hover:bg-surface-bg">
+                Koperasi Cahaya
+            </a>
+        </div>
+    
+    
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-text-secondary">Total Peserta</span>
+                <div class="h-8 w-8 rounded-lg bg-primary-light flex items-center justify-center">
+                    <svg class="w-4 h-4 text-cahaya-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4"/></svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-text-main">4</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-text-secondary">Peserta Aktif</span>
+                <div class="h-8 w-8 rounded-lg bg-primary-light flex items-center justify-center">
+                    <svg class="w-4 h-4 text-status-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-text-main">4</p>
+            <p class="text-[11px] text-text-secondary mt-1">dari 4 total peserta</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-text-secondary">Total Omzet Bulan Ini</span>
+                <div class="h-8 w-8 rounded-lg bg-gold-light flex items-center justify-center">
+                    <svg class="w-4 h-4 text-cahaya-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10v2"/></svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-text-main">Rp6.500.000</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-text-secondary">Rata-rata Omzet</span>
+                <div class="h-8 w-8 rounded-lg bg-primary-light flex items-center justify-center">
+                    <svg class="w-4 h-4 text-cahaya-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-text-main">Rp3.250.000</p>
+            <p class="text-[11px] text-text-secondary mt-1">per peserta yang melapor bulan ini</p>
+        </div>
+    </div>
+
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <h3 class="text-[15px] font-semibold text-text-main mb-4">Perkembangan Omzet — 2026</h3>
+                            <canvas id="omzetChart" height="90"></canvas>
+                    </div>
+
+        
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <h3 class="text-[15px] font-semibold text-text-main mb-4">Status Peserta</h3>
+                        <div class="mb-4">
+                <div class="flex justify-between text-xs text-text-secondary mb-1.5">
+                    <span>Peserta Aktif</span>
+                    <span>100%</span>
+                </div>
+                <div class="h-2.5 w-full bg-surface-bg rounded-full overflow-hidden">
+                    <div class="h-full bg-cahaya-primary rounded-full" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-text-secondary">Peserta Aktif</span><span class="font-semibold text-text-main">4</span></div>
+                <div class="flex justify-between"><span class="text-text-secondary">Peserta Tidak Aktif</span><span class="font-semibold text-text-main">0</span></div>
+                <div class="flex justify-between border-t border-border-soft pt-2 mt-1"><span class="text-text-secondary">Total Peserta</span><span class="font-bold text-cahaya-primary">4</span></div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-semibold text-text-main">Aktivitas Pendampingan</h3>
+                <a href="http://127.0.0.1:8000/pendampingan" class="text-xs text-status-info font-medium hover:underline">Lihat Semua</a>
+            </div>
+                            <div class="space-y-3">
+                                            <div class="flex items-center justify-between text-sm border-b border-border-soft last:border-0 pb-3 last:pb-0">
+                            <div class="min-w-0">
+                                <p class="font-medium text-text-main truncate">Ibu Siti</p>
+                                <p class="text-xs text-text-secondary truncate">Pendampingan &middot; Ahmad</p>
+                            </div>
+                            <span class="text-[11px] text-text-secondary flex-shrink-0">27-08-2026</span>
+                        </div>
+                                            <div class="flex items-center justify-between text-sm border-b border-border-soft last:border-0 pb-3 last:pb-0">
+                            <div class="min-w-0">
+                                <p class="font-medium text-text-main truncate">Ibu Siti</p>
+                                <p class="text-xs text-text-secondary truncate">Pendampingan &middot; Ahmad</p>
+                            </div>
+                            <span class="text-[11px] text-text-secondary flex-shrink-0">25-06-2026</span>
+                        </div>
+                                            <div class="flex items-center justify-between text-sm border-b border-border-soft last:border-0 pb-3 last:pb-0">
+                            <div class="min-w-0">
+                                <p class="font-medium text-text-main truncate">Ibu Siti</p>
+                                <p class="text-xs text-text-secondary truncate">Asesmen &middot; Ahmad</p>
+                            </div>
+                            <span class="text-[11px] text-text-secondary flex-shrink-0">10-06-2026</span>
+                        </div>
+                                    </div>
+                    </div>
+
+        
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <h3 class="text-[15px] font-semibold text-text-main mb-4">Status Legalitas</h3>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="bg-surface-bg rounded-xl p-4">
+                    <p class="text-xl font-bold text-cahaya-primary">1</p>
+                    <p class="text-[11px] text-text-secondary mt-1">Punya NIB</p>
+                </div>
+                <div class="bg-surface-bg rounded-xl p-4">
+                    <p class="text-xl font-bold text-cahaya-primary">1</p>
+                    <p class="text-[11px] text-text-secondary mt-1">Punya PIRT</p>
+                </div>
+                <div class="bg-surface-bg rounded-xl p-4">
+                    <p class="text-xl font-bold text-cahaya-primary">0</p>
+                    <p class="text-[11px] text-text-secondary mt-1">Sertifikat Halal</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+            <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-semibold text-text-main">HPP Cahaya Preneur</h3>
+                <span class="text-xs text-text-secondary">1 Perhitungan Tercatat</span>
+            </div>
+                            <div class="flex items-center justify-between bg-surface-bg rounded-xl p-4 text-sm">
+                    <div class="min-w-0">
+                        <p class="font-medium text-text-main truncate">Keripik Pisang</p>
+                        <p class="text-xs text-text-secondary truncate">Ibu Ana &middot; HPP Rp8.740/Pcs</p>
+                    </div>
+                    <a href="http://127.0.0.1:8000/hpp/1" class="text-xs text-status-info font-medium hover:underline flex-shrink-0 ml-3">Detail</a>
+                </div>
+                    </div>
+    
+    
+    <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-semibold text-text-main">Peserta Terbaru</h3>
+            <a href="http://127.0.0.1:8000/participants" class="text-xs text-status-info font-medium hover:underline">Lihat Semua Peserta</a>
+        </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    <div class="flex items-center justify-between text-sm bg-surface-bg rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-main truncate">Ibu Siti</p>
+                            <p class="text-xs text-text-secondary truncate">Keripik Siti</p>
+                        </div>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2
+                            bg-primary-light text-cahaya-primary">
+                            Aktif
+                        </span>
+                    </div>
+                                    <div class="flex items-center justify-between text-sm bg-surface-bg rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-main truncate">Ibu Ana</p>
+                            <p class="text-xs text-text-secondary truncate">Kue Ani</p>
+                        </div>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2
+                            bg-primary-light text-cahaya-primary">
+                            Aktif
+                        </span>
+                    </div>
+                                    <div class="flex items-center justify-between text-sm bg-surface-bg rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-main truncate">Ibu Rina</p>
+                            <p class="text-xs text-text-secondary truncate">Kerajinan Rina</p>
+                        </div>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2
+                            bg-primary-light text-cahaya-primary">
+                            Aktif
+                        </span>
+                    </div>
+                                    <div class="flex items-center justify-between text-sm bg-surface-bg rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-main truncate">Ibu Dewi</p>
+                            <p class="text-xs text-text-secondary truncate">Catering Dewi</p>
+                        </div>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2
+                            bg-primary-light text-cahaya-primary">
+                            Aktif
+                        </span>
+                    </div>
+                            </div>
+            </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+    new Chart(document.getElementById('omzetChart'), {
+        type: 'line',
+        data: {
+            labels: ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"],
+            datasets: [{
+                label: 'Omzet (Rp)',
+                data: [0,0,0,0,0,1500000,3200000,6500000,4500000,0,0,0],
+                borderColor: '#03586D',
+                backgroundColor: 'rgba(3, 88, 109, 0.08)',
+                pointBackgroundColor: '#FEB900',
+                tension: 0.3,
+                fill: true,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    ticks: { callback: function (value) { return 'Rp' + value.toLocaleString('id-ID'); } },
+                    grid: { color: '#DCE6E9' }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+</script>
+    </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Toggle submenu sidebar — INDEPENDEN per grup. Yang diklik saja yang
+        // berubah; grup lain TIDAK ikut ditutup, jadi Cahaya Preneur & Koperasi
+        // Cahaya bisa terbuka BERSAMAAN. (Dulu mode accordion: buka satu =
+        // tutup yang lain.)
+        //
+        // State AWAL saat halaman dimuat tetap ditentukan $cpActive/$kopActive
+        // di Blade — fungsi ini cuma mengurus perilaku SETELAH user klik.
+        function toggleSidebarGroup(id) {
+            const panel = document.getElementById('group-' + id);
+            if (!panel) return;
+
+            const willOpen = panel.classList.toggle('hidden') === false;
+
+            const chevron = document.getElementById('chevron-' + id);
+            if (chevron) chevron.classList.toggle('rotate-90', willOpen);
+
+            const toggle = document.getElementById('toggle-' + id);
+            if (toggle) toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        }
+    </script>
+</body>
+</html>

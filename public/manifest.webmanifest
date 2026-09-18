@@ -1,0 +1,45 @@
+{
+  "name": "CahayaOS — Cahaya Preneur & Koperasi Cahaya",
+  "short_name": "CahayaOS",
+  "description": "Sistem manajemen program pemberdayaan UMKM YBM PLN UP3 Bengkulu.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F8F9",
+  "theme_color": "#03586D",
+  "lang": "id",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/images/logo-cahayaos.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/logo-cahayaos.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Binaan Saya",
+      "short_name": "Binaan",
+      "url": "/binaan-saya"
+    },
+    {
+      "name": "Follow Up",
+      "short_name": "Follow Up",
+      "url": "/follow-up"
+    }
+  ]
+}

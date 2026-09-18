@@ -1,0 +1,441 @@
+@extends('layouts.app')
+
+@section('title', 'Keuangan')
+
+@section('content')
+<div class="space-y-6 w-full max-w-none">
+    <div>
+        <h2 class="text-[20px] font-bold text-text-main">Keuangan</h2>
+        <p class="text-sm text-text-secondary mt-0.5">3 buku terpisah — Keuangan Usaha, Dana Anggota, dan Dana Sosial tidak pernah dicampur.</p>
+    </div>
+
+    {{-- ================= BUKU 1 — KEUANGAN USAHA (LABA RUGI) ================= --}}
+    <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+        <h3 class="text-sm font-semibold text-text-main mb-1">Buku 1 — Keuangan Usaha</h3>
+        <p class="text-xs text-text-secondary mb-4">Ringkasan Laba Rugi dari transaksi Penjualan dan Pengeluaran. Model Titip Jual dihitung dari Fee Koperasi saja — nilai penjualan mitra TIDAK dihitung sebagai pendapatan koperasi.</p>
+
+        <form method="GET" class="flex flex-wrap gap-3 mb-5">
+            <select name="tahun" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
+                <option value="default" {{ ($filters['tahun'] ?? 'default') === 'default' ? 'selected' : '' }}>Tahun Ini</option>
+                <option value="semua" {{ ($filters['tahun'] ?? '') === 'semua' ? 'selected' : '' }}>Semua Tahun</option>
+                @for ($y = now()->year; $y >= now()->year - 3; $y--)
+                    <option value="{{ $y }}" {{ ($filters['tahun'] ?? '') == $y ? 'selected' : '' }}>{{ $y }}</option>
+                @endfor
+            </select>
+            <select name="bulan" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
+                <option value="default" {{ ($filters['bulan'] ?? 'default') === 'default' ? 'selected' : '' }}>Semua Bulan</option>
+                @foreach (['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as $i => $nm)
+                    <option value="{{ $i + 1 }}" {{ ($filters['bulan'] ?? '') == ($i + 1) ? 'selected' : '' }}>{{ $nm }}</option>
+                @endforeach
+            </select>
+            <select name="unit_id" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
+                <option value="">Semua Unit</option>
+                <option value="operasional" {{ ($filters['unit_id'] ?? '') === 'operasional' ? 'selected' : '' }}>Operasional Koperasi</option>
+                @foreach ($units as $u)
+                    <option value="{{ $u->id }}" {{ ($filters['unit_id'] ?? '') == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
+                @endforeach
+            </select>
+            <button type="submit" class="bg-status-info text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Filter</button>
+        </form>
+
+        @if (! $lr['ada_transaksi'] && ! $lr['ada_pengeluaran'])
+            <div class="text-center py-10">
+                <p class="text-sm font-medium text-text-main mb-1">Belum Ada Transaksi</p>
+                <p class="text-xs text-text-secondary">Belum ada transaksi pada periode ini.</p>
+            </div>
+        @else
+            {{-- RINGKASAN LABA RUGI --}}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Total Penjualan</p>
+                    <p class="text-base font-bold text-text-main">{{ rupiah($lr['total']['penjualan']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Total HPP</p>
+                    <p class="text-base font-bold text-text-main">{{ rupiah($lr['total']['hpp']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Laba Kotor</p>
+                    <p class="text-base font-bold text-status-info">{{ rupiah($lr['total']['laba_kotor']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Total Fee Koperasi</p>
+                    <p class="text-base font-bold text-cahaya-accent">{{ rupiah($lr['total']['fee_koperasi']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Total Hak Mitra</p>
+                    <p class="text-base font-bold text-text-secondary">{{ rupiah($lr['total']['hak_mitra']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Total Pengeluaran</p>
+                    <p class="text-base font-bold text-status-danger">{{ rupiah($lr['total']['pengeluaran_total']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4 bg-cahaya-primary col-span-2">
+                    <p class="text-xs text-white/70 mb-1">Laba Bersih</p>
+                    <p class="text-xl font-bold {{ $lr['total']['laba_bersih'] >= 0 ? 'text-white' : 'text-red-300' }}">
+                        {{ rupiah($lr['total']['laba_bersih']) }}
+                        @if ($lr['total']['margin'] !== null)
+                            <span class="text-xs font-normal text-white/60">(margin {{ number_format($lr['total']['margin'], 1) }}%)</span>
+                        @endif
+                    </p>
+                </div>
+            </div>
+            <p class="text-xs text-text-secondary mb-5">Pengeluaran Operasional Koperasi ({{ rupiah($lr['total']['pengeluaran_operasional']) }}) sudah termasuk di Total Pengeluaran di atas, tapi tidak dibebankan ke unit manapun.</p>
+
+            {{-- PERFORMA / LABA RUGI PER UNIT --}}
+            <h4 class="text-xs font-semibold text-text-secondary mb-2">Laba Rugi per Unit</h4>
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-text-secondary border-b border-border-soft bg-surface-bg">
+                            <th class="px-3 py-2.5 font-medium">Unit</th>
+                            <th class="px-3 py-2.5 font-medium">Penjualan</th>
+                            <th class="px-3 py-2.5 font-medium">HPP</th>
+                            <th class="px-3 py-2.5 font-medium">Fee</th>
+                            <th class="px-3 py-2.5 font-medium">Pengeluaran</th>
+                            <th class="px-3 py-2.5 font-medium">Laba Bersih</th>
+                            <th class="px-3 py-2.5 font-medium">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($lr['per_unit'] as $u)
+                            <tr class="border-b border-border-soft last:border-0 hover:bg-surface-bg/60 transition">
+                                <td class="px-3 py-2.5 font-medium text-text-main">{{ $u['nama'] }}</td>
+                                <td class="px-3 py-2.5 text-text-secondary">{{ rupiah($u['penjualan']) }}</td>
+                                <td class="px-3 py-2.5 text-text-secondary">{{ rupiah($u['hpp']) }}</td>
+                                <td class="px-3 py-2.5 text-text-secondary">{{ $u['fee_koperasi'] > 0 ? 'Rp' . number_format($u['fee_koperasi'], 0, ',', '.') : '-' }}</td>
+                                <td class="px-3 py-2.5 text-text-secondary">{{ rupiah($u['pengeluaran']) }}</td>
+                                <td class="px-3 py-2.5 font-semibold {{ $u['laba_bersih'] >= 0 ? 'text-status-success' : 'text-status-danger' }}">{{ rupiah($u['laba_bersih']) }}</td>
+                                <td class="px-3 py-2.5 text-text-secondary">{{ $u['margin'] !== null ? number_format($u['margin'], 1) . '%' : '-' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" class="py-6 text-center text-text-secondary italic">Belum ada unit usaha.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- REKAP PENJUALAN --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="border border-border-soft rounded-xl p-4">
+                    <h4 class="text-xs font-semibold text-text-secondary mb-2">Rekap Penjualan</h4>
+                    <div class="space-y-1 text-sm">
+                        <div class="flex justify-between"><span class="text-text-secondary">Jumlah Transaksi</span><span class="font-semibold text-text-main">{{ $jumlahTransaksi }}</span></div>
+                        <div class="flex justify-between"><span class="text-text-secondary">Total Penjualan</span><span class="font-semibold text-text-main">{{ rupiah($lr['total']['penjualan']) }}</span></div>
+                        <div class="flex justify-between"><span class="text-text-secondary">Total HPP</span><span class="font-semibold text-text-main">{{ rupiah($lr['total']['hpp']) }}</span></div>
+                        <div class="flex justify-between"><span class="text-text-secondary">Total Fee</span><span class="font-semibold text-text-main">{{ rupiah($lr['total']['fee_koperasi']) }}</span></div>
+                        <div class="flex justify-between"><span class="text-text-secondary">Total Hak Mitra</span><span class="font-semibold text-text-main">{{ rupiah($lr['total']['hak_mitra']) }}</span></div>
+                    </div>
+                </div>
+
+                {{-- REKAP PENGELUARAN PER KATEGORI --}}
+                <div class="border border-border-soft rounded-xl p-4">
+                    <h4 class="text-xs font-semibold text-text-secondary mb-2">Rekap Pengeluaran per Kategori</h4>
+                    @forelse ($rekapKategori as $k)
+                        <div class="flex justify-between text-sm py-0.5"><span class="text-text-secondary">{{ $k->kategori }}</span><span class="font-semibold text-text-main">{{ rupiah($k->total) }}</span></div>
+                    @empty
+                        <p class="text-sm text-text-secondary italic">Belum ada pengeluaran.</p>
+                    @endforelse
+                </div>
+            </div>
+        @endif
+    </div>
+
+    {{-- ================= BUKU 2 — DANA ANGGOTA ================= --}}
+    <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+        <h3 class="text-sm font-semibold text-text-main mb-1">Buku 2 — Dana Anggota</h3>
+        <p class="text-xs text-text-secondary mb-4">Simpanan Pokok & Wajib — bukan omzet, bukan laba, bukan pendapatan usaha.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="border border-border-soft rounded-xl p-4">
+                <p class="text-xs text-text-secondary mb-1">Simpanan Pokok</p>
+                <p class="text-xl font-bold text-cahaya-primary">{{ rupiah($totalSimpananPokok) }}</p>
+            </div>
+            <div class="border border-border-soft rounded-xl p-4">
+                <p class="text-xs text-text-secondary mb-1">Simpanan Wajib</p>
+                <p class="text-xl font-bold text-cahaya-primary">{{ rupiah($totalSimpananWajib) }}</p>
+            </div>
+            @if (($simpananTerarsip ?? 0) > 0)
+                {{-- Keterangan, bukan pengurangan angka: mengarsipkan anggota
+                     tidak mengembalikan uangnya, jadi koperasi memang masih
+                     memegang dana ini. Yang keliru adalah menampilkannya
+                     tanpa keterangan. --}}
+                <div class="sm:col-span-2 lg:col-span-3 text-xs text-text-secondary">
+                    Termasuk <span class="font-semibold text-text-main">{{ rupiah($simpananTerarsip) }}</span>
+                    milik anggota yang sudah diarsipkan. Dananya masih dipegang koperasi, tetapi pemiliknya
+                    tidak lagi terhitung sebagai anggota dan tidak menerima pembagian SHU.
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ================= BUKU 3 — DANA SOSIAL ================= --}}
+    <div class="space-y-4">
+        <div>
+            <h3 class="text-base font-bold text-text-main">Buku 3 — Dana Sosial</h3>
+            <p class="text-xs text-text-secondary mt-0.5">Dana Sukarela & Dana Hibah — tidak pernah dihitung sebagai omzet atau laba usaha.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-5">
+                <p class="text-xs text-text-secondary mb-1">Saldo Dana Sukarela</p>
+                <p class="text-xl font-bold text-cahaya-accent">{{ rupiah($saldo) }}</p>
+            </div>
+            <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-5">
+                <p class="text-xs text-text-secondary mb-1">Saldo Dana Hibah</p>
+                <p class="text-xl font-bold text-cahaya-accent">{{ rupiah($saldoHibah) }}</p>
+            </div>
+        </div>
+
+        <div>
+            <h4 class="text-sm font-semibold text-text-main mb-2">Dana Sukarela Sosial</h4>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+                    <h5 class="text-sm font-semibold text-text-main mb-4">Catat Pemasukan</h5>
+                    <form method="POST" action="{{ route('koperasi.dana-sukarela.masuk') }}" class="space-y-3 mb-6">
+                        @csrf
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Tanggal</label>
+                            <input type="date" name="tanggal" value="{{ now()->format('Y-m-d') }}" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Nominal (Rp)</label>
+                            <input type="number" min="0" step="1" name="nominal" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Sumber</label>
+                            <input type="text" name="sumber" placeholder="Contoh: Celengan Sukarela" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
+                            <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <button type="submit" class="bg-cahaya-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Pemasukan</button>
+                    </form>
+
+                    <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Sumber</th><th class="py-1.5">Nominal</th><th class="py-1.5">Aksi</th><th class="py-1.5">Aksi</th><th class="py-1.5">Aksi</th><th class="py-1.5">Aksi</th></tr></thead>
+                            <tbody>
+                                @forelse ($riwayatMasuk as $r)
+                                    <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
+                                        <td class="py-1.5 text-text-secondary">{{ $r->tanggal->format('d-m-Y') }}</td>
+                                        <td class="py-1.5 text-text-main">{{ $r->sumber }}</td>
+                                        <td class="py-1.5 font-medium text-text-main">{{ rupiah($r->nominal) }}</td>
+                                        <td class="py-1.5 whitespace-nowrap">
+                                            @if ($r->dibatalkan())
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                            @elseif (auth()->user()->isAdmin())
+                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
+                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
+                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
+                                                <form method="POST" action="{{ route('koperasi.dana-sukarela.batalkan', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="inline"
+                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                    @csrf
+                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
+                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                </form>
+                                            @else
+                                                <span class="text-text-secondary">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="py-4 text-center text-text-secondary italic">Belum ada pemasukan.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+                    <h5 class="text-sm font-semibold text-text-main mb-4">Catat Penggunaan</h5>
+                    <form method="POST" action="{{ route('koperasi.dana-sukarela.keluar') }}" class="space-y-3 mb-6">
+                        @csrf
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Tanggal</label>
+                            <input type="date" name="tanggal" value="{{ now()->format('Y-m-d') }}" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Nominal (Rp)</label>
+                            <input type="number" min="0" step="1" name="nominal" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Keperluan</label>
+                            <input type="text" name="keperluan" placeholder="Contoh: Bantuan Musibah Anggota" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
+                            <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <button type="submit" class="bg-cahaya-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Penggunaan</button>
+                    </form>
+
+                    <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Keperluan</th><th class="py-1.5">Nominal</th></tr></thead>
+                            <tbody>
+                                @forelse ($riwayatKeluar as $r)
+                                    <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
+                                        <td class="py-1.5 text-text-secondary">{{ $r->tanggal->format('d-m-Y') }}</td>
+                                        <td class="py-1.5 text-text-main">{{ $r->keperluan }}</td>
+                                        <td class="py-1.5 font-medium text-status-danger">{{ rupiah($r->nominal) }}</td>
+                                        <td class="py-1.5 whitespace-nowrap">
+                                            @if ($r->dibatalkan())
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                            @elseif (auth()->user()->isAdmin())
+                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
+                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
+                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
+                                                <form method="POST" action="{{ route('koperasi.dana-sukarela.batalkan', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="inline"
+                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                    @csrf
+                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
+                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                </form>
+                                            @else
+                                                <span class="text-text-secondary">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="py-4 text-center text-text-secondary italic">Belum ada penggunaan.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h4 class="text-sm font-semibold text-text-main mb-2">Dana Hibah / Bantuan Modal Usaha</h4>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+                    <h5 class="text-sm font-semibold text-text-main mb-4">Catat Pemasukan Hibah</h5>
+                    <form method="POST" action="{{ route('koperasi.dana-hibah.masuk') }}" class="space-y-3 mb-6">
+                        @csrf
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Tanggal</label>
+                            <input type="date" name="tanggal" value="{{ now()->format('Y-m-d') }}" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Nominal (Rp)</label>
+                            <input type="number" min="0" step="1" name="nominal" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Sumber / Pemberi Hibah</label>
+                            <input type="text" name="sumber" placeholder="Contoh: YBM PLN Pusat" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Peruntukan <span class="text-text-secondary">(boleh kosong)</span></label>
+                            <input type="text" name="peruntukan" placeholder="Contoh: Modal Usaha Cahaya Mart" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
+                            <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <button type="submit" class="bg-cahaya-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Pemasukan Hibah</button>
+                    </form>
+
+                    <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Sumber</th><th class="py-1.5">Peruntukan</th><th class="py-1.5">Nominal</th></tr></thead>
+                            <tbody>
+                                @forelse ($riwayatHibahMasuk as $r)
+                                    <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
+                                        <td class="py-1.5 text-text-secondary">{{ $r->tanggal->format('d-m-Y') }}</td>
+                                        <td class="py-1.5 text-text-main">{{ $r->sumber }}</td>
+                                        <td class="py-1.5 text-text-secondary">{{ $r->peruntukan ?: '—' }}</td>
+                                        <td class="py-1.5 font-medium text-text-main">{{ rupiah($r->nominal) }}</td>
+                                        <td class="py-1.5 whitespace-nowrap">
+                                            @if ($r->dibatalkan())
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                            @elseif (auth()->user()->isAdmin())
+                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
+                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
+                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
+                                                <form method="POST" action="{{ route('koperasi.dana-hibah.batalkan', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="inline"
+                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                    @csrf
+                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
+                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                </form>
+                                            @else
+                                                <span class="text-text-secondary">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="py-4 text-center text-text-secondary italic">Belum ada pemasukan hibah.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+                    <h5 class="text-sm font-semibold text-text-main mb-4">Catat Penggunaan Hibah</h5>
+                    <form method="POST" action="{{ route('koperasi.dana-hibah.keluar') }}" class="space-y-3 mb-6">
+                        @csrf
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Tanggal</label>
+                            <input type="date" name="tanggal" value="{{ now()->format('Y-m-d') }}" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Nominal (Rp)</label>
+                            <input type="number" min="0" step="1" name="nominal" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Keperluan</label>
+                            <input type="text" name="keperluan" placeholder="Contoh: Pembelian etalase Cahaya Mart" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
+                            <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
+                        </div>
+                        <button type="submit" class="bg-cahaya-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Penggunaan Hibah</button>
+                    </form>
+
+                    <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Keperluan</th><th class="py-1.5">Nominal</th></tr></thead>
+                            <tbody>
+                                @forelse ($riwayatHibahKeluar as $r)
+                                    <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
+                                        <td class="py-1.5 text-text-secondary">{{ $r->tanggal->format('d-m-Y') }}</td>
+                                        <td class="py-1.5 text-text-main">{{ $r->keperluan }}</td>
+                                        <td class="py-1.5 font-medium text-status-danger">{{ rupiah($r->nominal) }}</td>
+                                        <td class="py-1.5 whitespace-nowrap">
+                                            @if ($r->dibatalkan())
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                            @elseif (auth()->user()->isAdmin())
+                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
+                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
+                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
+                                                <form method="POST" action="{{ route('koperasi.dana-hibah.batalkan', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="inline"
+                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                    @csrf
+                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
+                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                </form>
+                                            @else
+                                                <span class="text-text-secondary">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="py-4 text-center text-text-secondary italic">Belum ada penggunaan hibah.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection

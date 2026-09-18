@@ -1,0 +1,73 @@
+========================================================================
+INSTRUKSI 1 — routes/web.php (Pengaturan Sistem)
+========================================================================
+
+LANGKAH 1 — Tambah baris import di paling atas file:
+
+use App\Http\Controllers\SystemSettingsController;
+
+
+LANGKAH 2 — Cari baris terakhir sebelum penutup blok
+Route::middleware('auth')->group(function () {...}), tambahkan:
+
+    // Pengaturan Sistem — khusus Admin (System Health + Activity Log)
+    Route::get('/pengaturan-sistem', [SystemSettingsController::class, 'index'])->name('pengaturan-sistem.index');
+
+========================================================================
+INSTRUKSI 2 — app/Providers/AppServiceProvider.php (WAJIB, manual)
+========================================================================
+
+PENTING: saya SENGAJA TIDAK mengirim file AppServiceProvider.php yang
+lengkap, karena saya belum pernah lihat isinya di sesi ini — kalau saya
+kirim versi saya sendiri dan Anda timpa, kemungkinan ada logic lain di
+situ (kalau ada) akan HILANG. Jadi ini harus ditambah MANUAL.
+
+LANGKAH 1 — Buka app/Providers/AppServiceProvider.php
+
+LANGKAH 2 — Cari method boot(), contohnya:
+
+    public function boot(): void
+    {
+        //
+    }
+
+LANGKAH 3 — Tambahkan baris-baris ini DI DALAM method boot() (kalau
+sudah ada isi lain di dalam boot(), taruh baris ini di bagian bawahnya,
+JANGAN hapus yang sudah ada):
+
+        \App\Models\User::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\Pendamping::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\Participant::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\KoperasiMember::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\SalesTransaction::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\Pengeluaran::observe(\App\Observers\ActivityLogObserver::class);
+
+Hasil akhirnya kira-kira begini (kalau tadinya kosong):
+
+    public function boot(): void
+    {
+        \App\Models\User::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\Pendamping::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\Participant::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\KoperasiMember::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\SalesTransaction::observe(\App\Observers\ActivityLogObserver::class);
+        \App\Models\Pengeluaran::observe(\App\Observers\ActivityLogObserver::class);
+    }
+
+CATATAN: baru 6 model ini yang dicatat dulu (yang paling penting/sering
+dipakai). Model lain (HPP, Legalitas, Pelatihan, dst) BISA ditambah
+belakangan dengan pola baris yang sama persis — tinggal bilang ke saya
+mau tambah yang mana.
+
+========================================================================
+SETELAH SEMUA SELESAI:
+1. php artisan migrate   (WAJIB — 1 tabel baru: activity_logs)
+2. php artisan view:clear
+========================================================================
+
+CARA COBA:
+1. Buka menu "Pengaturan Sistem" di sidebar (paling bawah, di bawah grup Koperasi)
+2. Cek System Health — semua kartu harus terisi (PHP Version, Laravel Version, dst)
+3. Coba tambah/edit 1 Peserta atau 1 Pengeluaran di halaman lain
+4. Kembali ke Pengaturan Sistem — aktivitas tadi harus muncul di Log Aktivitas
+========================================================================
