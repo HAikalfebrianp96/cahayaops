@@ -474,10 +474,10 @@
                                     <td class="py-2 space-x-2 whitespace-nowrap">
                                         <a href="{{ route('omzet.edit', $report) }}" class="text-xs text-status-info hover:underline">Edit</a>
                                         <form method="POST" action="{{ route('omzet.destroy', $report) }}" class="inline"
-                                              onsubmit="return confirm('Arsipkan laporan omzet periode ini? Periodenya bisa diisi ulang nanti.');">
+                                              onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-xs text-status-danger hover:underline">Arsipkan</button>
+                                            <button type="submit" class="text-xs text-status-danger hover:underline">Hapus Permanen</button>
                                         </form>
                                     </td>
                                 @endif
@@ -519,10 +519,10 @@
                                     <a href="{{ route('pendampingan.edit', $record) }}"
                                        class="text-xs text-status-info hover:underline">Edit</a>
                                     <form method="POST" action="{{ route('pendampingan.destroy', $record) }}" class="inline"
-                                          onsubmit="return confirm('Arsipkan catatan pendampingan ini?');">
+                                          onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-xs text-status-danger hover:underline">Arsipkan</button>
+                                        <button type="submit" class="text-xs text-status-danger hover:underline">Hapus Permanen</button>
                                     </form>
                                 @endif
                             </div>
@@ -701,10 +701,10 @@
                                     <td class="py-2 space-x-2 whitespace-nowrap">
                                         <a href="{{ route('training.edit', $training) }}" class="text-xs text-status-info hover:underline">Edit</a>
                                         <form method="POST" action="{{ route('training.destroy', $training) }}" class="inline"
-                                              onsubmit="return confirm('Arsipkan data pelatihan ini?');">
+                                              onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-status-danger hover:underline text-xs">Arsipkan</button>
+                                            <button type="submit" class="text-status-danger hover:underline text-xs">Hapus Permanen</button>
                                         </form>
                                     </td>
                                 @endif

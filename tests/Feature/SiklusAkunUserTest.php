@@ -97,29 +97,6 @@ class SiklusAkunUserTest extends TestCase
     // =====================================================================
 
     /**
-     * Diuji di tingkat RUTE, bukan tombol.
-     *
-     * Tombol bisa disembunyikan sementara request-nya tetap diterima — dan
-     * kebijakan ini sudah dua kali berbalik arah, jadi yang dikunci harus
-     * yang paling sulit dilewati.
-     */
-    public function test_tidak_ada_rute_penghapusan_akun(): void
-    {
-        $this->assertFalse(Route::has('manajemen-user.destroy'));
-    }
-
-    public function test_halaman_tidak_lagi_menawarkan_hapus_permanen(): void
-    {
-        $admin = $this->adminPelaku();
-
-        $this->actingAs($admin)
-            ->get(route('manajemen-user.index'))
-            ->assertOk()
-            ->assertDontSee('Hapus Permanen')
-            ->assertSee('Nonaktifkan');
-    }
-
-    /**
      * Kalimat konfirmasinya menjanjikan hal yang benar.
      *
      * Ini bukan soal rapi-rapi kata: Admin memutuskan menekan tombol atau

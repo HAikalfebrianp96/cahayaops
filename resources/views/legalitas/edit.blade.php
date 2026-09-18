@@ -90,7 +90,7 @@
         </div>
     </form>
 
-    <form method="POST" action="{{ route('legalitas.destroy', $record) }}" class="mt-2" onsubmit="return confirm('Arsipkan data legalitas ini?');">
+    <form method="POST" action="{{ route('legalitas.destroy', $record) }}" class="mt-2" onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
         @csrf
         @method('DELETE')
         <button type="submit" class="text-sm text-red-600 px-5 py-2.5 hover:underline">Hapus data ini</button>

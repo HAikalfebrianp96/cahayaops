@@ -240,9 +240,10 @@ class RiwayatPendampinganCrudTest extends TestCase
             ->delete(route('pendampingan.destroy', $this->catatanA))
             ->assertRedirect(route('participants.show', $this->binaanA->id));
 
-        // Soft Delete: hilang dari tampilan, TAPI barisnya tetap ada.
-        $this->assertSoftDeleted('pendampingan_records', ['id' => $this->catatanA->id]);
-        $this->assertNotNull(PendampinganRecord::withTrashed()->find($this->catatanA->id));
+        // Hapus permanen: barisnya benar-benar tidak ada lagi, bukan sekadar
+        // disembunyikan dari tampilan.
+        $this->assertDatabaseMissing('pendampingan_records', ['id' => $this->catatanA->id]);
+        $this->assertNull(PendampinganRecord::withTrashed()->find($this->catatanA->id));
         $this->assertSame(0, $this->binaanA->fresh()->pendampinganRecords()->count());
     }
 
@@ -252,14 +253,14 @@ class RiwayatPendampinganCrudTest extends TestCase
             ->delete(route('pendampingan.destroy', $this->catatanB))
             ->assertForbidden();
 
-        $this->assertNotSoftDeleted('pendampingan_records', ['id' => $this->catatanB->id]);
+        $this->assertDatabaseHas('pendampingan_records', ['id' => $this->catatanB->id]);
     }
 
     public function test_admin_bisa_menghapus_seluruh_catatan(): void
     {
         foreach ([$this->catatanA, $this->catatanB] as $catatan) {
             $this->actingAs($this->admin)->delete(route('pendampingan.destroy', $catatan));
-            $this->assertSoftDeleted('pendampingan_records', ['id' => $catatan->id]);
+            $this->assertDatabaseMissing('pendampingan_records', ['id' => $catatan->id]);
         }
     }
 
@@ -271,7 +272,7 @@ class RiwayatPendampinganCrudTest extends TestCase
             ->delete(route('pendampingan.destroy', $this->catatanA))
             ->assertForbidden();
 
-        $this->assertNotSoftDeleted('pendampingan_records', ['id' => $this->catatanA->id]);
+        $this->assertDatabaseHas('pendampingan_records', ['id' => $this->catatanA->id]);
     }
 
     // =====================================================================

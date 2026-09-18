@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Http\Controllers\Concerns\MenentukanPeriodeOmzet;
 use App\Http\Controllers\Concerns\MenyimpanBuktiOmzet;
 use App\Models\OmzetReport;
@@ -317,29 +318,20 @@ class OmzetMonitoringController extends Controller
         Gate::authorize('delete', $omzetReport);
 
         $participantId = $omzetReport->participant_id;
-        $omzetReport->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($omzetReport);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($omzetReport);
 
         return redirect()
             ->route('participants.show', $participantId)
-            ->with('success', 'Laporan omzet dihapus. Periode ini bisa diisi ulang kalau perlu.');
-    }
-
-    /**
-     * Memulihkan laporan omzet dari Arsip. Route-nya memakai withTrashed().
-     *
-     * PERHATIAN unique index (participant_id, periode_bulan, periode_tahun):
-     * index itu tidak mempedulikan `deleted_at`, jadi selama baris ini masih
-     * diarsipkan TIDAK MUNGKIN ada baris lain untuk periode yang sama —
-     * pemulihannya karena itu selalu aman. Alur store() memang sudah
-     * memulihkan baris lama alih-alih menyisipkan yang baru.
-     */
-    public function restore(OmzetReport $omzetReport)
-    {
-        Gate::authorize('restore', $omzetReport);
-
-        $omzetReport->restore();
-
-        return back()->with('success', 'Laporan omzet berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

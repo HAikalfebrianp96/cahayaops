@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\ActivityLog;
 use App\Models\Pendamping;
 use App\Models\User;
@@ -31,13 +32,8 @@ class PendampingController extends Controller
     {
         abort_unless(Auth::user()->isAdmin(), 403);
 
-        // Arsip pendamping terhapus — hanya kalau diminta lewat ?arsip=1.
-        // Daftar normal TIDAK berubah sama sekali.
-        $arsip = $request->boolean('arsip');
-
         $pendampings = Pendamping::withCount('participants')
             ->with(['user', 'penghapus'])
-            ->when($arsip, fn ($q) => $q->onlyTrashed())
             ->orderBy('nama')
             ->paginate(10)
             ->withQueryString();
@@ -55,8 +51,6 @@ class PendampingController extends Controller
             // Ambang beban dipakai menandai pendamping yang binaannya terlalu
             // banyak — bahan Admin untuk menimbang redistribusi peserta.
             'kpi' => app(\App\Services\KpiService::class),
-            'arsip' => $arsip,
-            'jumlahTerhapus' => Pendamping::onlyTrashed()->count(),
         ]);
     }
 
@@ -243,36 +237,20 @@ class PendampingController extends Controller
             );
         }
 
-        $pendamping->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($pendamping);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($pendamping);
 
         return redirect()
             ->route('pendampings.index')
-            ->with('success', 'Pendamping ' . $pendamping->nama . ' dipindahkan ke arsip. Binaannya TIDAK ikut terhapus dan tautannya tetap utuh — data ini bisa dipulihkan.');
-    }
-
-    /**
-     * Membatalkan Soft Delete. Route-nya memakai withTrashed().
-     *
-     * Yang kembali otomatis adalah data Pendamping beserta seluruh tautan
-     * binaannya — karena soft delete tidak pernah memicu FK, `pendamping_id`
-     * di participants tidak pernah dikosongkan.
-     *
-     * Yang TIDAK ikut kembali adalah tautan AKUN LOGIN-nya: destroy() sengaja
-     * melepasnya supaya akun itu langsung kehilangan akses ke binaan manapun
-     * (soft delete saja tidak cukup — barisnya masih ada, jadi
-     * canAccessParticipant() akan tetap lolos). Setelah dipulihkan, Admin
-     * menautkannya kembali lewat Manajemen User; pesan di bawah mengatakannya
-     * apa adanya alih-alih membiarkan Admin mengira semuanya sudah beres.
-     */
-    public function restore(Pendamping $pendamping)
-    {
-        abort_unless(Auth::user()->isAdmin(), 403);
-
-        $pendamping->restore();
-
-        return redirect()
-            ->route('pendampings.index')
-            ->with('success', 'Pendamping ' . $pendamping->nama . ' berhasil dipulihkan beserta seluruh binaannya. Akun loginnya perlu ditautkan kembali lewat Manajemen User.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function validated(Request $request, ?Pendamping $pendamping = null): array

@@ -213,30 +213,6 @@ class TargetDanKpiPendampingTest extends TestCase
         $this->assertSame(25, $target->fresh()->target_kunjungan);
     }
 
-    public function test_admin_dapat_menghapus_dan_memulihkan_target(): void
-    {
-        $target = $this->target(['target_kunjungan' => 10]);
-
-        $this->actingAs($this->admin)
-            ->delete(route('target-pendamping.destroy', $target))
-            ->assertRedirect(route('target-pendamping.index'));
-
-        // SOFT DELETE — barisnya tetap ada.
-        $this->assertSoftDeleted('pendamping_targets', ['id' => $target->id]);
-        $this->assertNotNull(PendampingTarget::withTrashed()->find($target->id));
-
-        $this->actingAs($this->admin)
-            ->get(route('target-pendamping.index', ['arsip' => 1]))
-            ->assertOk()
-            ->assertSee('Rosa Linda');
-
-        $this->actingAs($this->admin)
-            ->post(route('target-pendamping.restore', $target->id))
-            ->assertSessionHasNoErrors();
-
-        $this->assertNotSoftDeleted('pendamping_targets', ['id' => $target->id]);
-    }
-
     /** Satu pendamping hanya boleh punya SATU target per periode. */
     public function test_target_ganda_untuk_periode_sama_ditolak(): void
     {
@@ -647,8 +623,6 @@ class TargetDanKpiPendampingTest extends TestCase
         $this->actingAs($this->admin)->delete(route('target-pendamping.destroy', $target));
         $this->assertDatabaseHas('activity_logs', ['action' => 'target_deleted', 'model_id' => $target->id]);
 
-        $this->actingAs($this->admin)->post(route('target-pendamping.restore', $target->id));
-        $this->assertDatabaseHas('activity_logs', ['action' => 'target_restored', 'model_id' => $target->id]);
 
         // Tidak ada sistem log kedua.
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('kpi_logs'));

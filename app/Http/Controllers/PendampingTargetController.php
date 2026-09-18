@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\Pendamping;
 use App\Models\PendampingTarget;
 use Illuminate\Http\Request;
@@ -29,10 +30,7 @@ class PendampingTargetController extends Controller
     {
         Gate::authorize('viewAny', PendampingTarget::class);
 
-        $arsip = $request->boolean('arsip');
-
-        $query = PendampingTarget::with(['pendamping', 'pembuat', 'penghapus'])
-            ->when($arsip, fn ($q) => $q->onlyTrashed());
+        $query = PendampingTarget::with(['pendamping', 'pembuat', 'penghapus']);
 
         if ($request->filled('pendamping_id')) {
             $query->where('pendamping_id', $request->integer('pendamping_id'));
@@ -54,8 +52,6 @@ class PendampingTargetController extends Controller
             'periodeOptions' => PendampingTarget::PERIODE_OPTIONS,
             'tahunOptions' => $this->tahunOptions(),
             'filters' => $request->only(['pendamping_id', 'tahun', 'periode']),
-            'arsip' => $arsip,
-            'jumlahTerhapus' => PendampingTarget::onlyTrashed()->count(),
         ]);
     }
 
@@ -104,23 +100,20 @@ class PendampingTargetController extends Controller
         Gate::authorize('delete', $target);
 
         $label = $target->pendamping->nama . ' — ' . $target->periodeLabel();
-        $target->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($target);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($target);
 
         return redirect()
             ->route('target-pendamping.index')
-            ->with('success', 'Target ' . $label . ' dipindahkan ke arsip. KPI periode itu kembali memakai target default.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(PendampingTarget $target)
-    {
-        Gate::authorize('restore', $target);
-
-        $target->restore();
-
-        return redirect()
-            ->route('target-pendamping.index')
-            ->with('success', 'Target berhasil dipulihkan dan kembali dipakai perhitungan KPI.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function dataForm(?PendampingTarget $target = null): array

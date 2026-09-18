@@ -126,10 +126,10 @@
                                          dijual, cara yang benar tetap mengubah statusnya
                                          lewat Edit — datanya tetap muncul di laporan lama. --}}
                                     <form method="POST" action="{{ route('koperasi.produk.destroy', $p) }}" class="inline"
-                                          onsubmit="return confirm('Arsipkan produk/jasa ini?\n\nData akan dipindahkan ke Arsip Data dan masih dapat dipulihkan. Riwayat penjualannya tidak terpengaruh.');">
+                                          onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-surface-bg text-status-danger hover:bg-status-danger/10 transition">Arsipkan</button>
+                                        <button type="submit" class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-surface-bg text-status-danger hover:bg-status-danger/10 transition">Hapus Permanen</button>
                                     </form>
                                 </td>
                             </tr>

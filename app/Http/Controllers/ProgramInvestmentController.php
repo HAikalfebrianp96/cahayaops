@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\ActivityLog;
 use App\Models\ImpactProgram;
 use App\Models\ProgramInvestment;
@@ -75,22 +76,20 @@ class ProgramInvestmentController extends Controller
         Gate::authorize('update', $investasi->program);
 
         $program = $investasi->program;
-        $investasi->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($investasi);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($investasi);
 
         return redirect()
             ->route('impact.show', $program)
-            ->with('success', 'Investasi dipindahkan ke Arsip.');
-    }
-
-    public function restore(int $investasi)
-    {
-        $record = ProgramInvestment::withTrashed()->findOrFail($investasi);
-
-        Gate::authorize('update', $record->program);
-
-        $record->restore();
-
-        return back()->with('success', 'Investasi berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function validasi(Request $request): array

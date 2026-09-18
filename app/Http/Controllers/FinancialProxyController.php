@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\FinancialProxy;
 use App\Models\ImpactProgram;
 use Illuminate\Http\Request;
@@ -111,20 +112,20 @@ class FinancialProxyController extends Controller
                 . 'tanpa memutus outcome yang sudah memakainya.');
         }
 
-        $proxy->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($proxy);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($proxy);
 
         return redirect()
             ->route('impact.proxy.index')
-            ->with('success', 'Proxy dipindahkan ke Arsip.');
-    }
-
-    public function restore(int $proxy)
-    {
-        Gate::authorize('manage', ImpactProgram::class);
-
-        FinancialProxy::withTrashed()->findOrFail($proxy)->restore();
-
-        return back()->with('success', 'Proxy berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function validasi(Request $request): array

@@ -133,54 +133,28 @@ class EditDataKoperasiTest extends TestCase
         $this->assertSame('Tidak Aktif', $unit->fresh()->status);
     }
 
-    public function test_unit_usaha_dihapus_memakai_soft_delete_dan_bisa_dipulihkan(): void
-    {
-        $unit = $this->unit();
-
-        $this->actingAs($this->timKoperasi)
-            ->delete(route('koperasi.unit-usaha.destroy', $unit))
-            ->assertRedirect(route('koperasi.unit-usaha.index'));
-
-        $this->assertSoftDeleted('business_units', ['id' => $unit->id]);
-        $this->assertNotNull(BusinessUnit::withTrashed()->find($unit->id));
-
-        // Hilang dari daftar aktif, muncul di arsip.
-        //
-        // Yang diperiksa TAUTAN ke unit itu, bukan namanya: setelah dihapus,
-        // halaman daftar menampilkan flash "Unit usaha Unit Sembako
-        // dipindahkan ke arsip", jadi kemunculan namanya di sana justru
-        // wajar dan bukan tanda datanya masih terdaftar.
-        $this->actingAs($this->timKoperasi)
-            ->get(route('koperasi.unit-usaha.index'))
-            ->assertOk()
-            ->assertDontSee(route('koperasi.unit-usaha.edit', $unit), false);
-
-        $this->actingAs($this->timKoperasi)
-            ->get(route('koperasi.unit-usaha.index', ['arsip' => 1]))
-            ->assertOk()
-            ->assertSee('Unit Sembako')
-            ->assertSee(route('koperasi.unit-usaha.restore', $unit->id), false);
-
-        $this->actingAs($this->timKoperasi)
-            ->post(route('koperasi.unit-usaha.restore', $unit->id))
-            ->assertRedirect(route('koperasi.unit-usaha.index'));
-
-        $this->assertNotSoftDeleted('business_units', ['id' => $unit->id]);
-    }
-
     /**
      * Menghapus unit usaha TIDAK boleh ikut menghapus anggota yang terdaftar
      * di sana — FK-nya nullOnDelete, dan soft delete bahkan tidak memicunya.
      */
-    public function test_menghapus_unit_usaha_tidak_menghapus_anggotanya(): void
+    /**
+     * Unit yang masih dipakai anggota DITOLAK, bukan dihapus diam-diam.
+     *
+     * Foreign key-nya ON DELETE SET NULL, jadi database tidak akan menolak
+     * apa pun — anggotanya hanya akan kehilangan unitnya tanpa jejak. Karena
+     * itu penolakannya harus datang dari aplikasi.
+     */
+    public function test_unit_usaha_yang_masih_punya_anggota_tidak_bisa_dihapus(): void
     {
         $unit = $this->unit();
         $this->anggota->update(['unit_usaha_id' => $unit->id]);
 
         $this->actingAs($this->timKoperasi)->delete(route('koperasi.unit-usaha.destroy', $unit));
 
-        $this->assertNotSoftDeleted('koperasi_members', ['id' => $this->anggota->id]);
+        $this->assertDatabaseHas('business_units', ['id' => $unit->id]);
+        $this->assertDatabaseHas('koperasi_members', ['id' => $this->anggota->id]);
         $this->assertSame($unit->id, $this->anggota->fresh()->unit_usaha_id);
+        $this->assertStringContainsString('anggota terdaftar', (string) session('error'));
     }
 
     /**
@@ -228,7 +202,7 @@ class EditDataKoperasiTest extends TestCase
         }
 
         $this->assertSame('Unit Sembako', $unit->fresh()->nama);
-        $this->assertNotSoftDeleted('business_units', ['id' => $unit->id]);
+        $this->assertDatabaseHas('business_units', ['id' => $unit->id]);
     }
 
     public function test_perubahan_unit_usaha_tercatat_di_activity_log(): void
@@ -246,8 +220,6 @@ class EditDataKoperasiTest extends TestCase
         $this->actingAs($this->timKoperasi)->delete(route('koperasi.unit-usaha.destroy', $unit));
         $this->assertDatabaseHas('activity_logs', ['action' => 'business_unit_deleted', 'model_id' => $unit->id]);
 
-        $this->actingAs($this->timKoperasi)->post(route('koperasi.unit-usaha.restore', $unit->id));
-        $this->assertDatabaseHas('activity_logs', ['action' => 'business_unit_restored', 'model_id' => $unit->id]);
     }
 
     // =====================================================================
@@ -306,7 +278,7 @@ class EditDataKoperasiTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame('Tidak Aktif', $this->anggota->fresh()->status);
-        $this->assertNotSoftDeleted('koperasi_members', ['id' => $this->anggota->id]);
+        $this->assertDatabaseHas('koperasi_members', ['id' => $this->anggota->id]);
     }
 
     public function test_role_tanpa_hak_tidak_bisa_mengedit_anggota(): void

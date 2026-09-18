@@ -115,7 +115,6 @@ class MobileDanPwaTest extends TestCase
             'Daftar Peserta' => [$this->admin, route('participants.index')],
             'Binaan Saya' => [$this->pendamping, route('binaan.index')],
             'Follow Up' => [$this->pendamping, route('follow-up.index')],
-            'Arsip Data' => [$this->admin, route('arsip.index')],
             'Laporan Pendamping' => [$this->admin, route('laporan.pendamping')],
             'Dashboard Pendamping' => [$this->pendamping, route('dashboard')],
         ];
@@ -168,7 +167,6 @@ class MobileDanPwaTest extends TestCase
             route('participants.create'),
             route('participants.edit', $peserta),
             route('omzet.create', $peserta),
-            route('arsip.index'),
             route('laporan.pendamping'),
         ] as $url) {
             $this->actingAs($this->pendamping)->get($url)->assertOk("Halaman gagal dibuka: $url");

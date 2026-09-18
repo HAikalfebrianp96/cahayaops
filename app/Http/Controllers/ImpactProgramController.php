@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\ImpactProgram;
 use App\Models\Pendamping;
 use App\Models\SroiCalculation;
@@ -306,22 +307,20 @@ class ImpactProgramController extends Controller
     {
         Gate::authorize('delete', $impact);
 
-        $impact->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($impact);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($impact);
 
         return redirect()
             ->route('impact.index')
-            ->with('success', 'Program dipindahkan ke Arsip dan bisa dipulihkan.');
-    }
-
-    public function restore(int $impact)
-    {
-        $program = ImpactProgram::withTrashed()->findOrFail($impact);
-
-        Gate::authorize('manage', ImpactProgram::class);
-
-        $program->restore();
-
-        return back()->with('success', 'Program berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

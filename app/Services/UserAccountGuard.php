@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pengaman agar sistem TIDAK PERNAH kehilangan seluruh Admin aktif.
@@ -61,6 +63,70 @@ class UserAccountGuard
      * menonaktifkannya. Mengubah role Admin terakhir menjadi 'admin' lagi
      * (alias tidak berubah) tentu tetap boleh.
      */
+    /**
+     * Jejak yang membuat akun TIDAK boleh dihapus permanen.
+     *
+     * Seluruh FK ke `users` memakai ON DELETE SET NULL, jadi menghapus akun
+     * tidak akan menimbulkan error apa pun — ia hanya mengosongkan kolom
+     * "oleh siapa" di seluruh riwayat, diam-diam. Justru karena database
+     * tidak akan menolak, penolakannya harus eksplisit di sini.
+     *
+     * Kolom diperiksa dengan Schema::hasTable/hasColumn supaya tetap jalan
+     * pada basis data uji yang belum memuat seluruh tabel.
+     *
+     * @var array<string, array{0: string, 1: string}>  label => [tabel, kolom]
+     */
+    private const JEJAK = [
+        'catatan aktivitas' => ['activity_logs', 'user_id'],
+        'transaksi penjualan' => ['sales_transactions', 'created_by'],
+        'pengeluaran' => ['pengeluaran', 'created_by'],
+        'perhitungan HPP' => ['hpp_calculations', 'created_by'],
+        'program dampak' => ['impact_programs', 'dibuat_oleh'],
+        'periode SHU' => ['shu_periods', 'ditetapkan_oleh'],
+    ];
+
+    /**
+     * Alasan akun ini tidak boleh dihapus permanen, atau null kalau boleh.
+     *
+     * Urutannya disengaja: pemeriksaan yang paling mudah dipahami pengguna
+     * didahulukan, supaya pesannya menjelaskan hal yang paling relevan.
+     */
+    public function alasanTidakBisaDihapus(User $user, ?int $idPengguna = null): ?string
+    {
+        if ($idPengguna !== null && $user->id === $idPengguna) {
+            return 'Anda tidak dapat menghapus akun Anda sendiri.';
+        }
+
+        if ($this->adminAktifTerakhir($user)) {
+            return 'Akun ini adalah Admin aktif terakhir. Menghapusnya membuat sistem tidak punya Admin sama sekali.';
+        }
+
+        if ($user->pendamping_id !== null) {
+            return 'Akun ini masih terhubung ke data Pendamping. Lepaskan hubungannya lebih dulu.';
+        }
+
+        $ada = [];
+
+        foreach (self::JEJAK as $label => [$tabel, $kolom]) {
+            if (! Schema::hasTable($tabel) || ! Schema::hasColumn($tabel, $kolom)) {
+                continue;
+            }
+
+            $jumlah = DB::table($tabel)->where($kolom, $user->id)->count();
+
+            if ($jumlah > 0) {
+                $ada[] = "{$jumlah} {$label}";
+            }
+        }
+
+        if ($ada !== []) {
+            return 'Akun ini masih tercatat sebagai pelaku pada ' . implode(', ', $ada)
+                . '. Menghapusnya membuat riwayat itu kehilangan keterangan siapa yang melakukannya. Nonaktifkan saja akunnya.';
+        }
+
+        return null;
+    }
+
     public function bolehUbahRole(User $user, string $roleBaru): bool
     {
         if ($roleBaru === self::ROLE_ADMIN) {

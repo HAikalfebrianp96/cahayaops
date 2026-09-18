@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\PengeluaranCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,17 +14,12 @@ class KategoriPengeluaranController extends Controller
     {
         abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);
 
-        $arsip = $request->boolean('arsip');
-
         $kategori = PengeluaranCategory::withCount('pengeluaran')
-            ->when($arsip, fn ($q) => $q->onlyTrashed())
             ->orderBy('nama')
             ->get();
 
         return view('koperasi.pengaturan.kategori-pengeluaran.index', [
             'kategori' => $kategori,
-            'arsip' => $arsip,
-            'jumlahTerhapus' => PengeluaranCategory::onlyTrashed()->count(),
         ]);
     }
 
@@ -87,23 +83,20 @@ class KategoriPengeluaranController extends Controller
     {
         abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);
 
-        $kategori->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($kategori);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($kategori);
 
         return redirect()
             ->route('koperasi.kategori-pengeluaran.index')
-            ->with('success', 'Kategori "' . $kategori->nama . '" dipindahkan ke arsip. Pengeluaran yang memakainya tidak terpengaruh.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(PengeluaranCategory $kategori)
-    {
-        abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);
-
-        $kategori->restore();
-
-        return redirect()
-            ->route('koperasi.kategori-pengeluaran.index')
-            ->with('success', 'Kategori "' . $kategori->nama . '" berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

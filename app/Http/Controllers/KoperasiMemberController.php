@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\BusinessUnit;
 use App\Models\KoperasiMember;
 use App\Models\MemberSaving;
@@ -40,18 +41,13 @@ class KoperasiMemberController extends Controller
     {
         Gate::authorize('viewAny', KoperasiMember::class);
 
-        $arsip = $request->boolean('arsip');
-
         $members = KoperasiMember::with(['participant', 'unitUsaha', 'penghapus'])
-            ->when($arsip, fn ($q) => $q->onlyTrashed())
             ->orderBy('nama')
             ->paginate(15)
             ->withQueryString();
 
         return view('koperasi.anggota.index', [
             'members' => $members,
-            'arsip' => $arsip,
-            'jumlahTerhapus' => KoperasiMember::onlyTrashed()->count(),
         ]);
     }
 
@@ -213,23 +209,20 @@ class KoperasiMemberController extends Controller
         Gate::authorize('delete', $anggota);
 
         $nama = $anggota->namaTampil();
-        $anggota->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($anggota);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($anggota);
 
         return redirect()
             ->route('koperasi.anggota.index')
-            ->with('success', 'Anggota ' . $nama . ' dipindahkan ke arsip. Data tidak hilang dan bisa dipulihkan.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(KoperasiMember $anggota)
-    {
-        Gate::authorize('restore', $anggota);
-
-        $anggota->restore();
-
-        return redirect()
-            ->route('koperasi.anggota.index')
-            ->with('success', 'Anggota ' . $anggota->namaTampil() . ' berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

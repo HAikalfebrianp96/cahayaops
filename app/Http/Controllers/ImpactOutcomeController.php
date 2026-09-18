@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\FinancialProxy;
 use App\Models\ImpactOutcome;
 use App\Models\ImpactProgram;
@@ -74,22 +75,20 @@ class ImpactOutcomeController extends Controller
         Gate::authorize('update', $outcome->program);
 
         $program = $outcome->program;
-        $outcome->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($outcome);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($outcome);
 
         return redirect()
             ->route('impact.show', $program)
-            ->with('success', 'Outcome dipindahkan ke Arsip.');
-    }
-
-    public function restore(int $outcome)
-    {
-        $record = ImpactOutcome::withTrashed()->findOrFail($outcome);
-
-        Gate::authorize('update', $record->program);
-
-        $record->restore();
-
-        return back()->with('success', 'Outcome berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function validasi(Request $request): array

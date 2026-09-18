@@ -319,20 +319,25 @@ class BuktiOmzetTest extends TestCase
         $this->assertSame(1_750_000, $r->fresh()->omzet);
     }
 
-    public function test_mengarsipkan_laporan_tidak_menghapus_berkas_buktinya(): void
+    /**
+     * Menghapus laporan ikut membuang berkas buktinya.
+     *
+     * Dulu berkas sengaja ditinggal supaya laporan yang diarsipkan masih bisa
+     * dipulihkan lengkap dengan buktinya. Pemulihan sudah tidak ada, jadi
+     * berkas yang ditinggal tidak bisa dijangkau siapa pun lagi — ia hanya
+     * menumpuk di penyimpanan tanpa satu baris pun yang menunjuknya.
+     */
+    public function test_menghapus_laporan_ikut_membuang_berkas_buktinya(): void
     {
-        // Laporan yang diarsipkan masih bisa dipulihkan; buktinya tidak bisa
-        // dibuat ulang. Pemulihan tanpa bukti sama saja kehilangan bukti.
         $r = $this->laporanBerbukti();
         $path = $r->bukti_path;
 
-        $this->actingAs($this->admin)->delete(route('omzet.destroy', $r))->assertRedirect();
-        $this->assertSoftDeleted('omzet_reports', ['id' => $r->id]);
-
         Storage::assertExists($path);
 
-        $this->actingAs($this->admin)->post(route('omzet.restore', $r->id));
-        $this->assertTrue($r->fresh()->punyaBukti());
+        $this->actingAs($this->admin)->delete(route('omzet.destroy', $r))->assertRedirect();
+
+        $this->assertDatabaseMissing('omzet_reports', ['id' => $r->id]);
+        Storage::assertMissing($path);
     }
 
     public function test_bukti_tidak_bisa_ditentukan_lewat_mass_assignment(): void

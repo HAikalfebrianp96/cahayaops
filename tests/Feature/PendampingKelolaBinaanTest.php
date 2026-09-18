@@ -354,17 +354,6 @@ class PendampingKelolaBinaanTest extends TestCase
         $this->assertNotSoftDeleted('participants', ['id' => $this->binaanA->id]);
     }
 
-    public function test_pendamping_tidak_boleh_memulihkan_peserta(): void
-    {
-        $this->binaanA->delete();
-
-        $this->actingAs($this->pendampingA)
-            ->post(route('participants.restore', $this->binaanA->id))
-            ->assertForbidden();
-
-        $this->assertSoftDeleted('participants', ['id' => $this->binaanA->id]);
-    }
-
     // =====================================================================
     // 6. ADMIN — KONTROL GLOBAL
     // =====================================================================
@@ -456,17 +445,6 @@ class PendampingKelolaBinaanTest extends TestCase
     // 7. SOFT DELETE & RESTORE
     // =====================================================================
 
-    public function test_admin_menghapus_peserta_memakai_soft_delete(): void
-    {
-        $this->actingAs($this->admin)
-            ->delete(route('participants.destroy', $this->binaanA))
-            ->assertRedirect(route('participants.index'));
-
-        // Ditandai terhapus, TAPI barisnya masih ada di database.
-        $this->assertSoftDeleted('participants', ['id' => $this->binaanA->id]);
-        $this->assertNotNull(Participant::withTrashed()->find($this->binaanA->id));
-    }
-
     public function test_peserta_terhapus_hilang_dari_daftar_dan_tidak_bisa_dibuka(): void
     {
         $this->binaanA->delete();
@@ -478,39 +456,6 @@ class PendampingKelolaBinaanTest extends TestCase
 
         $this->actingAs($this->admin)->get('/participants/' . $this->binaanA->id)->assertNotFound();
         $this->actingAs($this->pendampingA)->get(route('binaan.index'))->assertDontSee('Binaan Milik A');
-    }
-
-    public function test_admin_bisa_memulihkan_peserta_beserta_relasinya(): void
-    {
-        // Peserta punya jejak di modul lain sebelum dihapus.
-        $this->binaanA->pendampinganRecords()->create([
-            'pendamping_id' => $this->profilA->id,
-            'tanggal' => '2026-03-01',
-            'jenis_kegiatan' => 'Monitoring',
-            'materi' => 'Kunjungan rutin',
-        ]);
-
-        $this->binaanA->delete();
-
-        $this->actingAs($this->admin)
-            ->post(route('participants.restore', $this->binaanA->id))
-            ->assertRedirect(route('participants.index'));
-
-        $this->assertNotSoftDeleted('participants', ['id' => $this->binaanA->id]);
-
-        // Relasinya tidak ikut hilang saat dihapus, jadi tetap lengkap setelah dipulihkan.
-        $this->assertSame(1, $this->binaanA->fresh()->pendampinganRecords()->count());
-    }
-
-    public function test_arsip_hanya_menampilkan_peserta_terhapus(): void
-    {
-        $this->binaanA->delete();
-
-        $this->actingAs($this->admin)
-            ->get(route('participants.index', ['arsip' => 1]))
-            ->assertOk()
-            ->assertSee('Binaan Milik A')
-            ->assertDontSee('Binaan Milik B');
     }
 
     // =====================================================================
@@ -538,10 +483,6 @@ class PendampingKelolaBinaanTest extends TestCase
             'action' => 'participant_deleted', 'model_id' => $baru->id,
         ]);
 
-        $this->actingAs($this->admin)->post(route('participants.restore', $baru->id));
-        $this->assertDatabaseHas('activity_logs', [
-            'action' => 'participant_restored', 'model_id' => $baru->id,
-        ]);
     }
 
     // =====================================================================

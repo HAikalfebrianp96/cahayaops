@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\BusinessUnit;
 use App\Models\ProductService;
 use Illuminate\Http\Request;
@@ -26,17 +27,12 @@ class BusinessUnitController extends Controller
     {
         Gate::authorize('viewAny', BusinessUnit::class);
 
-        $arsip = $request->boolean('arsip');
-
         $units = BusinessUnit::withCount('productsServices')
-            ->when($arsip, fn ($q) => $q->onlyTrashed())
             ->orderBy('nama')
             ->get();
 
         return view('koperasi.unit-usaha.index', [
             'units' => $units,
-            'arsip' => $arsip,
-            'jumlahTerhapus' => BusinessUnit::onlyTrashed()->count(),
         ]);
     }
 
@@ -102,23 +98,20 @@ class BusinessUnitController extends Controller
     {
         Gate::authorize('delete', $unit);
 
-        $unit->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($unit);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($unit);
 
         return redirect()
             ->route('koperasi.unit-usaha.index')
-            ->with('success', 'Unit usaha ' . $unit->nama . ' dipindahkan ke arsip. Data tidak hilang dan bisa dipulihkan.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(BusinessUnit $unit)
-    {
-        Gate::authorize('restore', $unit);
-
-        $unit->restore();
-
-        return redirect()
-            ->route('koperasi.unit-usaha.index')
-            ->with('success', 'Unit usaha ' . $unit->nama . ' berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function validated(Request $request, ?int $unitId = null): array

@@ -82,10 +82,10 @@
                                  dengan menambah catatan tandingan. --}}
                             <a href="{{ route('pendampingan.edit', $record) }}" class="text-cahaya-primary hover:underline">Edit</a>
                             <form method="POST" action="{{ route('pendampingan.destroy', $record) }}" class="inline"
-                                  onsubmit="return confirm('Arsipkan catatan pendampingan ini?');">
+                                  onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:underline">Arsipkan</button>
+                                <button type="submit" class="text-red-600 hover:underline">Hapus Permanen</button>
                             </form>
                         </td>
                     </tr>

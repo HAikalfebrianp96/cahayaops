@@ -270,7 +270,6 @@ class MatriksHakAksesTest extends TestCase
             'koperasi.pengeluaran.index',
             'koperasi.shu.index',
             'koperasi.laporan.index',
-            'arsip.index',
         ] as $nama) {
             $this->actingAs($this->timKoperasi)->get(route($nama))->assertOk();
         }
@@ -346,7 +345,7 @@ class MatriksHakAksesTest extends TestCase
         $halaman = [
             'dashboard', 'participants.index', 'omzet.index', 'impact.index',
             'koperasi.anggota.index', 'koperasi.shu.index', 'manajemen-user.index',
-            'backup-database.index', 'laporan', 'arsip.index',
+            'backup-database.index', 'laporan',
         ];
 
         foreach ($halaman as $nama) {

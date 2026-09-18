@@ -183,10 +183,10 @@
                         @endcan
                         @can('delete', $m)
                             <form method="POST" action="{{ route('perkembangan.destroy', $m) }}"
-                                  onsubmit="return confirm('Arsipkan pengukuran ini? Data tetap bisa dipulihkan dari Arsip.')">
+                                  onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="text-status-danger hover:underline">Arsipkan</button>
+                                <button type="submit" class="text-status-danger hover:underline">Hapus Permanen</button>
                             </form>
                         @endcan
                     </div>

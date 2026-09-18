@@ -3,8 +3,6 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BinaanSayaController;
 use App\Http\Controllers\AccountController;
-use App\Http\Controllers\ArsipController;
-use App\Http\Controllers\HapusPermanenController;
 use App\Http\Controllers\BackupDatabaseController;
 use App\Http\Controllers\ManajemenUserController;
 use App\Http\Controllers\BusinessUnitController;
@@ -81,28 +79,11 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 Route::get('/akun/ganti-password', [AccountController::class, 'editPassword'])->name('account.password.edit');
 Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])->name('account.password.update');
 
-    // Cahaya Preneur — Data Peserta & Pendamping (Tahap 2).
-    // Otorisasinya ada di dalam controller lewat ParticipantPolicy:
-    // index Admin saja, create/edit Admin + Pendamping pemilik binaan,
-    // destroy/restore Admin saja.
-    //
-    // withTrashed() WAJIB di route restore: tanpa itu route model binding
-    // tidak akan pernah menemukan peserta yang sudah di-soft-delete, dan
-    // pemulihannya selalu 404 (pola yang sama dipakai Manajemen User).
-    Route::post('/participants/{participant}/restore', [ParticipantController::class, 'restore'])
-        ->withTrashed()
-        ->name('participants.restore');
     // Export daftar peserta — memakai FILTER YANG SAMA dengan halaman
     // daftar (ParticipantController::terapkanFilter), jadi isi file selalu
     // sama persis dengan yang terlihat di layar.
     Route::get('/participants-export', [ParticipantController::class, 'export'])->name('participants.export');
     Route::resource('participants', ParticipantController::class);
-    // Pendamping kini memakai Soft Delete. withTrashed() WAJIB di route
-    // restore — tanpa itu route model binding tidak akan pernah menemukan
-    // data yang sudah dihapus.
-    Route::post('/pendampings/{pendamping}/restore', [PendampingController::class, 'restore'])
-        ->withTrashed()
-        ->name('pendampings.restore');
     Route::resource('pendampings', PendampingController::class);
     Route::put('/pendampings/{pendamping}/reset-password', [PendampingController::class, 'resetPassword'])->name('pendampings.reset-password');
 
@@ -121,8 +102,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/omzet/{omzetReport}/edit', [OmzetMonitoringController::class, 'edit'])->name('omzet.edit');
     Route::put('/omzet/{omzetReport}', [OmzetMonitoringController::class, 'update'])->name('omzet.update');
     Route::delete('/omzet/{omzetReport}', [OmzetMonitoringController::class, 'destroy'])->name('omzet.destroy');
-    Route::post('/omzet/{omzetReport}/restore', [OmzetMonitoringController::class, 'restore'])
-        ->withTrashed()->name('omzet.restore');
 
     // ==========================================================
     // PERKEMBANGAN USAHA — Baseline / Monitoring / Endline
@@ -138,8 +117,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/perkembangan/{perkembangan}/edit', [ParticipantMeasurementController::class, 'edit'])->name('perkembangan.edit');
     Route::put('/perkembangan/{perkembangan}', [ParticipantMeasurementController::class, 'update'])->name('perkembangan.update');
     Route::delete('/perkembangan/{perkembangan}', [ParticipantMeasurementController::class, 'destroy'])->name('perkembangan.destroy');
-    Route::post('/perkembangan/{perkembangan}/restore', [ParticipantMeasurementController::class, 'restore'])
-        ->name('perkembangan.restore');
 
     // ==========================================================
     // DAMPAK & SROI
@@ -156,7 +133,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::put('/impact/proxy/{proxy}', [FinancialProxyController::class, 'update'])->name('impact.proxy.update');
     Route::post('/impact/proxy/{proxy}/toggle', [FinancialProxyController::class, 'toggle'])->name('impact.proxy.toggle');
     Route::delete('/impact/proxy/{proxy}', [FinancialProxyController::class, 'destroy'])->name('impact.proxy.destroy');
-    Route::post('/impact/proxy/{proxy}/restore', [FinancialProxyController::class, 'restore'])->name('impact.proxy.restore');
 
     Route::get('/impact', [ImpactProgramController::class, 'index'])->name('impact.index');
     Route::get('/impact/create', [ImpactProgramController::class, 'create'])->name('impact.create');
@@ -165,7 +141,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/impact/{impact}/edit', [ImpactProgramController::class, 'edit'])->name('impact.edit');
     Route::put('/impact/{impact}', [ImpactProgramController::class, 'update'])->name('impact.update');
     Route::delete('/impact/{impact}', [ImpactProgramController::class, 'destroy'])->name('impact.destroy');
-    Route::post('/impact/{impact}/restore', [ImpactProgramController::class, 'restore'])->name('impact.restore');
 
     // Menghitung dan menyetujui adalah dua tindakan yang SENGAJA dipisah —
     // menjalankan rumus dan menyatakan angkanya layak terbit bukan hal yang
@@ -187,25 +162,13 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/impact-investasi/{investasi}/edit', [ProgramInvestmentController::class, 'edit'])->name('impact.investasi.edit');
     Route::put('/impact-investasi/{investasi}', [ProgramInvestmentController::class, 'update'])->name('impact.investasi.update');
     Route::delete('/impact-investasi/{investasi}', [ProgramInvestmentController::class, 'destroy'])->name('impact.investasi.destroy');
-    Route::post('/impact-investasi/{investasi}/restore', [ProgramInvestmentController::class, 'restore'])->name('impact.investasi.restore');
 
     Route::get('/impact/{impact}/outcome/create', [ImpactOutcomeController::class, 'create'])->name('impact.outcome.create');
     Route::post('/impact/{impact}/outcome', [ImpactOutcomeController::class, 'store'])->name('impact.outcome.store');
     Route::get('/impact-outcome/{outcome}/edit', [ImpactOutcomeController::class, 'edit'])->name('impact.outcome.edit');
     Route::put('/impact-outcome/{outcome}', [ImpactOutcomeController::class, 'update'])->name('impact.outcome.update');
     Route::delete('/impact-outcome/{outcome}', [ImpactOutcomeController::class, 'destroy'])->name('impact.outcome.destroy');
-    Route::post('/impact-outcome/{outcome}/restore', [ImpactOutcomeController::class, 'restore'])->name('impact.outcome.restore');
 
-    // ARSIP DATA — satu pintu untuk seluruh data ber-Soft Delete.
-    // Tab yang tampil disaring ArsipController sesuai kewenangan; halaman ini
-    // TIDAK punya jalur restore sendiri, ia hanya menunjuk ke route modul
-    // masing-masing sehingga policy modulnya tetap jadi pengaman terakhir.
-    Route::get('/arsip', [ArsipController::class, 'index'])->name('arsip.index');
-    // HAPUS PERMANEN — tingkat ketiga, hanya Admin, dan tidak bisa dibatalkan.
-    // Otorisasi + kalimat konfirmasi diperiksa di controller; aturan mana data
-    // yang boleh dihapus ada di PenghapusanPermanenService.
-    Route::delete('/arsip/{modul}/{id}/hapus-permanen', HapusPermanenController::class)
-        ->name('arsip.hapus-permanen');
 
     // ==========================================================
     // KPI & KINERJA PENDAMPING
@@ -220,11 +183,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/kpi-pendamping/export-pdf', [KpiPendampingController::class, 'exportPdf'])->name('kpi-pendamping.export-pdf');
     Route::get('/kpi-pendamping/{pendamping}', [KpiPendampingController::class, 'show'])->name('kpi-pendamping.show');
 
-    // withTrashed() WAJIB — tanpa itu target yang diarsipkan tidak akan
-    // pernah ditemukan route model binding dan tidak bisa dipulihkan.
-    Route::post('/target-pendamping/{target}/restore', [PendampingTargetController::class, 'restore'])
-        ->withTrashed()
-        ->name('target-pendamping.restore');
     Route::resource('target-pendamping', PendampingTargetController::class)
         ->parameters(['target-pendamping' => 'target'])
         ->except(['show']);
@@ -249,10 +207,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/pendampingan/{pendampinganRecord}/edit', [PendampinganController::class, 'edit'])->name('pendampingan.edit');
     Route::put('/pendampingan/{pendampinganRecord}', [PendampinganController::class, 'update'])->name('pendampingan.update');
     Route::delete('/pendampingan/{pendampinganRecord}', [PendampinganController::class, 'destroy'])->name('pendampingan.destroy');
-    // withTrashed() WAJIB di seluruh route restore — tanpa itu route model
-    // binding tidak akan pernah menemukan baris yang sudah di-soft-delete.
-    Route::post('/pendampingan/{pendampinganRecord}/restore', [PendampinganController::class, 'restore'])
-        ->withTrashed()->name('pendampingan.restore');
     Route::get('/pendampingan', [PendampinganController::class, 'index'])->name('pendampingan.index');
 
     // Pelatihan — Admin & Pendamping pemilik binaan (TrainingRecordPolicy).
@@ -264,8 +218,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::put('/training/{trainingRecord}', [TrainingController::class, 'update'])->name('training.update');
     Route::put('/training/{trainingRecord}/status', [TrainingController::class, 'updateStatus'])->name('training.status');
     Route::delete('/training/{trainingRecord}', [TrainingController::class, 'destroy'])->name('training.destroy');
-    Route::post('/training/{trainingRecord}/restore', [TrainingController::class, 'restore'])
-        ->withTrashed()->name('training.restore');
 
     // Legalitas & Sertifikasi DINAMIS — Admin & Pendamping pemilik binaan, CRUD penuh
     Route::get('/participants/{participant}/legalitas/create', [LegalitasController::class, 'create'])->name('legalitas.create');
@@ -273,8 +225,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/legalitas/{legalitasRecord}/edit', [LegalitasController::class, 'edit'])->name('legalitas.edit');
     Route::put('/legalitas/{legalitasRecord}', [LegalitasController::class, 'update'])->name('legalitas.update');
     Route::delete('/legalitas/{legalitasRecord}', [LegalitasController::class, 'destroy'])->name('legalitas.destroy');
-    Route::post('/legalitas/{legalitasRecord}/restore', [LegalitasController::class, 'restore'])
-        ->withTrashed()->name('legalitas.restore');
     Route::get('/legalitas/{legalitasRecord}/download', [LegalitasController::class, 'download'])->name('legalitas.download');
 
     // HPP Cahaya Preneur 
@@ -285,8 +235,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     Route::get('/hpp/{hppCalculation}/edit', [HppCalculationController::class, 'edit'])->name('hpp.edit');
     Route::put('/hpp/{hppCalculation}', [HppCalculationController::class, 'update'])->name('hpp.update');
     Route::delete('/hpp/{hppCalculation}', [HppCalculationController::class, 'destroy'])->name('hpp.destroy');
-    Route::post('/hpp/{hppCalculation}/restore', [HppCalculationController::class, 'restore'])
-        ->withTrashed()->name('hpp.restore');
 
     // TAHAP 5 — Laporan (Admin: semua data. Pendamping: hanya binaannya, di-scope di controller)
     Route::get('/laporan', [ReportController::class, 'index'])->name('laporan');
@@ -353,12 +301,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         // Customer quick-add (dipakai dari halaman Penjualan)
         Route::post('/customer/quick', [CustomerController::class, 'quickStore'])->name('customer.quick-store');
 
-        // PELANGGAN — sebelumnya HANYA bisa dibuat lewat quick-add di atas,
-        // tanpa cara melihat atau memperbaikinya. Halaman pengelolaannya
-        // ditambahkan di sini; quick-add TIDAK diubah.
-        Route::post('/pelanggan/{pelanggan}/restore', [CustomerController::class, 'restore'])
-            ->withTrashed()
-            ->name('pelanggan.restore');
         Route::resource('pelanggan', CustomerController::class)
             ->parameters(['pelanggan' => 'pelanggan'])
             ->except(['show']);
@@ -374,11 +316,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         // yang sama, jadi seluruh aturan anti-duplikasinya tetap berlaku.
         Route::get('/anggota/dari-peserta/{participant}', [KoperasiMemberController::class, 'jadikanAnggota'])
             ->name('anggota.jadikan');
-        // withTrashed() WAJIB — tanpa itu anggota yang di-soft-delete tidak
-        // akan pernah ditemukan route model binding dan tidak bisa dipulihkan.
-        Route::post('/anggota/{anggota}/restore', [KoperasiMemberController::class, 'restore'])
-            ->withTrashed()
-            ->name('anggota.restore');
         Route::resource('anggota', KoperasiMemberController::class)
             ->parameters(['anggota' => 'anggota']);
         Route::post('/anggota/{anggota}/simpanan', [MemberSavingController::class, 'store'])->name('savings.store');
@@ -394,12 +331,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::post('/simpanan/{simpanan}/kunci', [MemberSavingController::class, 'kunci'])->name('savings.kunci');
 	Route::post('/anggota/{anggota}/generate-pin', [KoperasiMemberController::class, 'generatePin'])->name('anggota.generate-pin');
 
-        // K2 — Unit Usaha Dinamis + Produk/Jasa
-        // withTrashed() WAJIB — tanpa itu unit yang di-soft-delete tidak akan
-        // pernah ditemukan route model binding dan tidak bisa dipulihkan.
-        Route::post('/unit-usaha/{unit}/restore', [BusinessUnitController::class, 'restore'])
-            ->withTrashed()
-            ->name('unit-usaha.restore');
         Route::resource('unit-usaha', BusinessUnitController::class)
             ->parameters(['unit-usaha' => 'unit']);
         Route::get('/unit-usaha/{unit}/produk/create', [ProductServiceController::class, 'create'])->name('produk.create');
@@ -408,9 +339,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::get('/produk/{produk}/edit', [ProductServiceController::class, 'edit'])->name('produk.edit');
         Route::put('/produk/{produk}', [ProductServiceController::class, 'update'])->name('produk.update');
         Route::delete('/produk/{produk}', [ProductServiceController::class, 'destroy'])->name('produk.destroy');
-        Route::post('/produk/{produk}/restore', [ProductServiceController::class, 'restore'])
-            ->withTrashed()
-            ->name('produk.restore');
 
         // K3 — Penjualan + Invoice (+ Edit Transaksi)
         Route::resource('penjualan', SalesTransactionController::class)
@@ -423,6 +351,7 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         // perbaikan adalah membuat transaksi baru — yang justru menambah baris
         // yang tidak pernah terjadi ke dalam laporan.
         Route::post('/penjualan/{transaksi}/pulihkan', [SalesTransactionController::class, 'pulihkan'])->name('penjualan.pulihkan');
+
         Route::get('/penjualan/{transaksi}/invoice', [InvoiceController::class, 'show'])->name('invoice.show');
         Route::post('/penjualan/{transaksi}/invoice', [InvoiceController::class, 'store'])->name('invoice.store');
         Route::get('/penjualan/{transaksi}/invoice/pdf', [InvoiceController::class, 'pdf'])->name('invoice.pdf');
@@ -445,9 +374,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::put('/kategori-pengeluaran/{kategori}', [KategoriPengeluaranController::class, 'update'])->name('kategori-pengeluaran.update');
         Route::post('/kategori-pengeluaran/{kategori}/toggle', [KategoriPengeluaranController::class, 'toggleStatus'])->name('kategori-pengeluaran.toggle');
         Route::delete('/kategori-pengeluaran/{kategori}', [KategoriPengeluaranController::class, 'destroy'])->name('kategori-pengeluaran.destroy');
-        Route::post('/kategori-pengeluaran/{kategori}/restore', [KategoriPengeluaranController::class, 'restore'])
-            ->withTrashed()
-            ->name('kategori-pengeluaran.restore');
 
         // Keuangan — Dana Sukarela Sosial + Dana Hibah
         Route::get('/keuangan', [LabaRugiController::class, 'index'])->name('keuangan.index');
@@ -493,7 +419,6 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::post('/shu/{shu}/susun-ulang', [ShuController::class, 'susunUlang'])->name('shu.susun-ulang');
         Route::post('/shu/{shu}/sahkan', [ShuController::class, 'sahkan'])->name('shu.sahkan');
         Route::delete('/shu/{shu}', [ShuController::class, 'destroy'])->name('shu.destroy');
-        Route::post('/shu/{shu}/restore', [ShuController::class, 'restore'])->name('shu.restore');
 
         Route::get('/pengaturan', [KoperasiSettingController::class, 'index'])->name('pengaturan.index');
         Route::post('/pengaturan', [KoperasiSettingController::class, 'update'])->name('pengaturan.update');
@@ -557,6 +482,8 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::get('/{user}/edit', [ManajemenUserController::class, 'edit'])->name('edit');
         Route::put('/{user}', [ManajemenUserController::class, 'update'])->name('update');
         Route::post('/{user}/status', [ManajemenUserController::class, 'status'])->name('status');
+        // Hapus permanen: Admin saja, dan ditolak bila akunnya sudah punya jejak.
+        Route::delete('/{user}', [ManajemenUserController::class, 'destroy'])->name('destroy');
         Route::post('/{user}/reset-password', [ManajemenUserController::class, 'resetPassword'])->name('reset-password');
     });
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\ActivityLog;
 use App\Models\ShuPeriod;
 use App\Models\KoperasiSetting;
@@ -232,20 +233,20 @@ class ShuController extends Controller
         $this->pastikanBolehKelola();
         $this->pastikanBelumFinal($shu);
 
-        $shu->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($shu);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($shu);
 
         return redirect()
             ->route('koperasi.shu.index')
-            ->with('success', 'Penetapan dipindahkan ke Arsip dan bisa dipulihkan.');
-    }
-
-    public function restore(int $shu)
-    {
-        $this->pastikanBolehKelola();
-
-        ShuPeriod::withTrashed()->findOrFail($shu)->restore();
-
-        return back()->with('success', 'Penetapan SHU berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     // ==================================================================

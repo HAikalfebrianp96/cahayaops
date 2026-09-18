@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\Participant;
 use App\Models\ParticipantMeasurement;
 use App\Services\PerbandinganService;
@@ -100,22 +101,20 @@ class ParticipantMeasurementController extends Controller
         Gate::authorize('delete', $perkembangan);
 
         $participantId = $perkembangan->participant_id;
-        $perkembangan->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($perkembangan);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($perkembangan);
 
         return redirect()
             ->route('perkembangan.index', $participantId)
-            ->with('success', 'Pengukuran dipindahkan ke Arsip dan bisa dipulihkan.');
-    }
-
-    public function restore(int $perkembangan)
-    {
-        $record = ParticipantMeasurement::withTrashed()->findOrFail($perkembangan);
-
-        Gate::authorize('restore', $record);
-
-        $record->restore();
-
-        return back()->with('success', 'Pengukuran berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

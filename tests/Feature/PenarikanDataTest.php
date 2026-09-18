@@ -159,30 +159,6 @@ class PenarikanDataTest extends TestCase
         );
     }
 
-    /**
-     * Salah hapus tidak boleh berarti pekerjaan hilang.
-     */
-    public function test_catatan_yang_dipulihkan_kembali_dihitung(): void
-    {
-        $catatan = $this->catat('2026-06-15');
-
-        $this->actingAs($this->akunPendamping)
-            ->delete(route('pendampingan.destroy', $catatan))
-            ->assertSessionHasNoErrors();
-
-        $this->assertSame(0, $this->rapor()['indikator']['target_pendampingan']['aktual']);
-
-        $this->actingAs($this->admin)
-            ->post(route('pendampingan.restore', $catatan->id))
-            ->assertSessionHasNoErrors();
-
-        $this->assertSame(
-            1,
-            $this->rapor()['indikator']['target_pendampingan']['aktual'],
-            'Catatan yang dipulihkan tidak kembali dihitung.'
-        );
-    }
-
     // =================================================================
     // SIMPANAN ANGGOTA
     // =================================================================

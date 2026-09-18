@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\Participant;
 use App\Models\TrainingRecord;
 use Illuminate\Http\Request;
@@ -89,24 +90,20 @@ class TrainingController extends Controller
         Gate::authorize('delete', $trainingRecord);
 
         $participantId = $trainingRecord->participant_id;
-        $trainingRecord->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($trainingRecord);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($trainingRecord);
 
         return redirect()
             ->route('participants.show', $participantId)
-            ->with('success', 'Data pelatihan dihapus.');
-    }
-
-    /**
-     * Memulihkan data pelatihan dari Arsip. Route-nya memakai withTrashed().
-     * Tercatat sebagai 'training_restored' lewat Observer.
-     */
-    public function restore(TrainingRecord $trainingRecord)
-    {
-        Gate::authorize('restore', $trainingRecord);
-
-        $trainingRecord->restore();
-
-        return back()->with('success', 'Data pelatihan berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     private function validated(Request $request): array

@@ -240,19 +240,4 @@ class PenyederhanaanUxPhase2Test extends TestCase
         $respons->assertDontSee('skor');
     }
 
-    /**
-     * Arsip tidak boleh menjanjikan data abadi.
-     *
-     * Sejak Hapus Permanen ada, janji "data tidak pernah hilang dari
-     * database" menjadi tidak benar — dan janji yang salah di halaman arsip
-     * baru ketahuan salah setelah ada yang mencarinya.
-     */
-    public function test_halaman_arsip_tidak_menjanjikan_data_abadi(): void
-    {
-        $this->actingAs($this->admin)
-            ->get(route('arsip.index'))
-            ->assertOk()
-            ->assertDontSee('tidak pernah hilang')
-            ->assertSee('tidak dapat dipulihkan');
-    }
 }

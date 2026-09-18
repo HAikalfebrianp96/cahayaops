@@ -166,7 +166,6 @@ class UatEmpatPeranTest extends TestCase
         foreach ([
             'manajemen-user.index',
             'pengaturan.index',
-            'arsip.index',
             'backup-database.index',
             'koperasi.anggota.index',
         ] as $rute) {

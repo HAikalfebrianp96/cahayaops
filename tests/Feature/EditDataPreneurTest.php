@@ -239,7 +239,7 @@ class EditDataPreneurTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame('Pelatihan Milik B', $record->fresh()->nama_pelatihan);
-        $this->assertNotSoftDeleted('training_records', ['id' => $record->id]);
+        $this->assertDatabaseHas('training_records', ['id' => $record->id]);
     }
 
     /** Dropdown status di Detail Peserta memakai route terpisah & tetap jalan. */
@@ -257,19 +257,6 @@ class EditDataPreneurTest extends TestCase
         // Field lain TIDAK ikut tersentuh oleh dropdown.
         $this->assertSame('Pelatihan NIB', $segar->nama_pelatihan);
         $this->assertSame('Dinas Koperasi', $segar->penyelenggara);
-    }
-
-    public function test_pelatihan_dihapus_memakai_soft_delete(): void
-    {
-        $record = $this->pelatihan($this->binaanA);
-
-        $this->actingAs($this->pendampingA)
-            ->delete(route('training.destroy', $record))
-            ->assertRedirect(route('participants.show', $this->binaanA->id));
-
-        $this->assertSoftDeleted('training_records', ['id' => $record->id]);
-        $this->assertNotNull(TrainingRecord::withTrashed()->find($record->id));
-        $this->assertSame(0, $this->binaanA->fresh()->trainingRecords()->count());
     }
 
     public function test_pimpinan_tidak_bisa_mengubah_pelatihan(): void
@@ -358,7 +345,7 @@ class EditDataPreneurTest extends TestCase
         $report = $this->omzet($this->binaanA, 6, 5000000);
 
         $this->actingAs($this->admin)->delete(route('omzet.destroy', $report));
-        $this->assertSoftDeleted('omzet_reports', ['id' => $report->id]);
+        $this->assertDatabaseMissing('omzet_reports', ['id' => $report->id]);
 
         $this->actingAs($this->admin)
             ->post(route('omzet.store', $this->binaanA), [
@@ -366,10 +353,17 @@ class EditDataPreneurTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
-        // Baris LAMA yang dipulihkan & diperbarui — bukan baris kedua.
+        // Baris lamanya sudah benar-benar hilang, jadi yang terbentuk adalah
+        // baris BARU. Yang penting tetap sama: periode itu hanya boleh punya
+        // satu baris, tidak menumpuk.
         $this->assertSame(1, OmzetReport::withTrashed()->where('participant_id', $this->binaanA->id)->count());
-        $this->assertNotSoftDeleted('omzet_reports', ['id' => $report->id]);
-        $this->assertSame(6000000, $report->fresh()->omzet);
+        $this->assertDatabaseMissing('omzet_reports', ['id' => $report->id]);
+        $this->assertDatabaseHas('omzet_reports', [
+            'participant_id' => $this->binaanA->id,
+            'periode_bulan' => 6,
+            'periode_tahun' => 2026,
+            'omzet' => 6000000,
+        ]);
     }
 
     /** Form publik peserta juga tidak boleh pecah karena unique index itu. */
@@ -405,7 +399,7 @@ class EditDataPreneurTest extends TestCase
 
         // Admin boleh semuanya.
         $this->actingAs($this->admin)->delete(route('omzet.destroy', $milikB))->assertSessionHasNoErrors();
-        $this->assertSoftDeleted('omzet_reports', ['id' => $milikB->id]);
+        $this->assertDatabaseMissing('omzet_reports', ['id' => $milikB->id]);
     }
 
     /** Pimpinan boleh MELIHAT omzet, tapi tidak boleh mengubah apa pun. */

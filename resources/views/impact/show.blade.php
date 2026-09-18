@@ -227,9 +227,9 @@
                     @if ($bisaKelola)
                         <a href="{{ route('impact.investasi.edit', $inv) }}" class="text-xs text-cahaya-secondary hover:underline">Edit</a>
                         <form method="POST" action="{{ route('impact.investasi.destroy', $inv) }}"
-                              onsubmit="return confirm('Arsipkan pos investasi ini?')">
+                              onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.')">
                             @csrf @method('DELETE')
-                            <button type="submit" class="text-xs text-status-danger hover:underline">Arsipkan</button>
+                            <button type="submit" class="text-xs text-status-danger hover:underline">Hapus Permanen</button>
                         </form>
                     @endif
                 </div>
@@ -272,9 +272,9 @@
                         <div class="flex gap-3 text-xs">
                             <a href="{{ route('impact.outcome.edit', $o) }}" class="text-cahaya-secondary hover:underline">Edit</a>
                             <form method="POST" action="{{ route('impact.outcome.destroy', $o) }}"
-                                  onsubmit="return confirm('Arsipkan outcome ini?')">
+                                  onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.')">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="text-status-danger hover:underline">Arsipkan</button>
+                                <button type="submit" class="text-status-danger hover:underline">Hapus Permanen</button>
                             </form>
                         </div>
                     @endif

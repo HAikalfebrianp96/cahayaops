@@ -7,28 +7,18 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
             <h2 class="text-[20px] font-bold text-text-main">
-                {{ $arsip ? 'Arsip Anggota' : 'Keanggotaan Koperasi' }}
+                Keanggotaan Koperasi
             </h2>
             <p class="text-sm text-text-secondary mt-0.5">
-                {{ $arsip
-                    ? 'Anggota yang dihapus tidak hilang — riwayat simpanannya tetap utuh dan bisa dipulihkan.'
-                    : 'Daftar anggota Koperasi Cahaya' }}
+                Daftar anggota Koperasi Cahaya
             </p>
         </div>
         <div class="flex items-center gap-2">
-            @if ($arsip)
-                <a href="{{ route('koperasi.anggota.index') }}"
-                   class="text-sm text-text-secondary px-4 py-2.5 hover:text-text-main">← Daftar Anggota</a>
-            @else
-                @if ($jumlahTerhapus > 0)
-                    <a href="{{ route('koperasi.anggota.index', ['arsip' => 1]) }}"
-                       class="text-sm text-text-secondary px-4 py-2.5 hover:text-text-main">Arsip ({{ $jumlahTerhapus }})</a>
-                @endif
-                <a href="{{ route('koperasi.anggota.create') }}"
+                                <a href="{{ route('koperasi.anggota.create') }}"
                    class="inline-flex items-center justify-center bg-cahaya-primary text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:opacity-90 transition">
                     + Tambah Anggota
                 </a>
-            @endif
+
         </div>
     </div>
 
@@ -36,14 +26,13 @@
         @if ($members->isEmpty())
             <div class="text-center py-14">
                 <p class="text-sm font-medium text-text-main mb-1">
-                    {{ $arsip ? 'Arsip Kosong' : 'Belum Ada Anggota' }}
+                    Belum Ada Anggota
                 </p>
                 <p class="text-xs text-text-secondary mb-4">
-                    {{ $arsip ? 'Tidak ada anggota yang dihapus.' : 'Belum ada anggota koperasi yang terdaftar.' }}
+                    Belum ada anggota koperasi yang terdaftar.
                 </p>
-                @unless ($arsip)
-                    <a href="{{ route('koperasi.anggota.create') }}" class="inline-block text-sm bg-cahaya-primary text-white font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">+ Tambah Anggota</a>
-                @endunless
+                                    <a href="{{ route('koperasi.anggota.create') }}" class="inline-block text-sm bg-cahaya-primary text-white font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">+ Tambah Anggota</a>
+
             </div>
         @else
             <div class="overflow-x-auto">
@@ -80,16 +69,6 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="flex gap-1.5 items-center">
-                                        @if ($arsip)
-                                            <form method="POST" action="{{ route('koperasi.anggota.restore', $m->id) }}"
-                                                  onsubmit="return confirm('Pulihkan anggota ini?');">
-                                                @csrf
-                                                <button type="submit"
-                                                        class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-primary-light text-status-success hover:opacity-80 transition">
-                                                    Pulihkan
-                                                </button>
-                                            </form>
-                                        @else
                                             <a href="{{ route('koperasi.anggota.show', $m) }}"
                                                class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-surface-bg text-status-info hover:bg-primary-light transition">
                                                 Detail
@@ -107,7 +86,7 @@
                                                     Hapus
                                                 </button>
                                             </form>
-                                        @endif
+
                                     </div>
                                 </td>
                             </tr>

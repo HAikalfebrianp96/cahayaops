@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\Participant;
 use App\Models\Pendamping;
 use App\Models\PendampinganRecord;
@@ -88,26 +89,20 @@ class PendampinganController extends Controller
         Gate::authorize('delete', $pendampinganRecord);
 
         $participantId = $pendampinganRecord->participant_id;
-        $pendampinganRecord->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($pendampinganRecord);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($pendampinganRecord);
 
         return redirect()
             ->route('participants.show', $participantId)
-            ->with('success', 'Catatan pendampingan dihapus.');
-    }
-
-    /**
-     * Memulihkan catatan dari Arsip. Route-nya memakai withTrashed().
-     *
-     * Observer mencatatnya sebagai 'mentoring_restored' lewat hook restored()
-     * — sistem Activity Log yang sama, bukan pencatatan kedua.
-     */
-    public function restore(PendampinganRecord $pendampinganRecord)
-    {
-        Gate::authorize('restore', $pendampinganRecord);
-
-        $pendampinganRecord->restore();
-
-        return back()->with('success', 'Catatan pendampingan berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

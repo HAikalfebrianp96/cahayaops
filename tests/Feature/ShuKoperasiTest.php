@@ -297,17 +297,6 @@ class ShuKoperasiTest extends TestCase
         ]);
     }
 
-    public function test_penetapan_diarsipkan_lalu_dipulihkan(): void
-    {
-        $periode = $this->periode(1_000_000, [['nama' => 'Cadangan', 'persen' => 100, 'ke_anggota' => false, 'dasar' => null]]);
-
-        $this->actingAs($this->admin)->delete(route('koperasi.shu.destroy', $periode))->assertRedirect();
-        $this->assertSoftDeleted('shu_periods', ['id' => $periode->id]);
-
-        $this->actingAs($this->admin)->post(route('koperasi.shu.restore', $periode->id))->assertRedirect();
-        $this->assertDatabaseHas('shu_periods', ['id' => $periode->id, 'deleted_at' => null]);
-    }
-
     // ==================================================================
 
     private function user(string $role, string $email): User

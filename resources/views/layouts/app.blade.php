@@ -135,10 +135,6 @@
                 // hanya label yang dilihat pengguna.
                 ['route' => 'pengaturan-sistem.index', 'label' => 'Monitoring & Keamanan', 'active' => ['pengaturan-sistem.*']],
                 ['route' => 'manajemen-user.index', 'label' => 'Manajemen User', 'active' => ['manajemen-user.*']],
-                // Arsip Data ditaruh di section SISTEM, bukan di dalam modul:
-                // isinya lintas modul (peserta, pendamping, catatan, koperasi),
-                // jadi menaruhnya di salah satu modul justru menyesatkan.
-                ['route' => 'arsip.index', 'label' => 'Arsip Data', 'active' => ['arsip.*']],
                 ['route' => 'backup-database.index', 'label' => 'Backup Database', 'active' => ['backup-database.*']],
             ];
 
@@ -222,8 +218,6 @@
                     ['route' => 'koperasi.keuangan.index', 'label' => 'Keuangan', 'active' => ['koperasi.keuangan.*']],
                     ['route' => 'koperasi.shu.index', 'label' => 'SHU', 'active' => ['koperasi.shu.*']],
                     ['route' => 'koperasi.laporan.index', 'label' => 'Laporan', 'active' => ['koperasi.laporan.*']],
-                    // Arsip Tim Koperasi hanya memuat modul koperasi.
-                    ['route' => 'arsip.index', 'label' => 'Arsip Data', 'active' => ['arsip.*']],
                 ];
             } elseif ($isPendamping) {
                 // "Binaan Saya" dan "Laporan" HANYA muncul untuk Pendamping
@@ -283,7 +277,7 @@
                     // pendamping, dan pendamping yang menyimpan tautannya
                     // tetap bisa membukanya.
                     // KPI Saya HANYA berisi kinerja dirinya sendiri —
-                    // ArsipController/KpiPendampingController yang menyaringnya,
+                    // KpiPendampingController yang menyaringnya,
                     // dan filter dari URL diabaikan untuk non-Admin.
                     $punyaDataBinaan
                         ? ['route' => 'kpi-pendamping.index', 'label' => 'KPI Saya', 'active' => ['kpi-pendamping.*']]

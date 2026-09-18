@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\LegalitasRecord;
 use App\Models\Participant;
 use Illuminate\Http\Request;
@@ -93,30 +94,20 @@ class LegalitasController extends Controller
 
         $participant = $legalitasRecord->pesertaTermasukArsip();
 
-        $legalitasRecord->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($legalitasRecord);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($legalitasRecord);
 
         return redirect()
             ->route('participants.show', $participant)
-            ->with('success', 'Dokumen legalitas diarsipkan. Berkasnya tetap tersimpan dan bisa dipulihkan Admin dari Arsip Data.');
-    }
-
-    /**
-     * Pulihkan dari Arsip. Route-nya memakai withTrashed().
-     *
-     * Otorisasinya memakai pesertaTermasukArsip() supaya Pendamping pemilik
-     * binaan tetap dikenali walau pesertanya ikut diarsipkan — pola yang
-     * sama dengan modul catatan peserta lainnya.
-     */
-    public function restore(LegalitasRecord $legalitasRecord)
-    {
-        abort_unless(
-            Auth::user()->canManageParticipantRecord($legalitasRecord->pesertaTermasukArsip()),
-            403
-        );
-
-        $legalitasRecord->restore();
-
-        return back()->with('success', 'Dokumen legalitas berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     public function download(LegalitasRecord $legalitasRecord)

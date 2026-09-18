@@ -18,10 +18,15 @@ use Illuminate\Validation\Rule;
  * BUKAN untuk Anggota Koperasi — anggota memakai mekanisme Anggota + PIN
  * yang terpisah dan tidak punya baris di tabel `users`.
  *
- * TIDAK ADA fitur hapus akun. Alasannya bukan sekadar kebijakan: 7 tabel
- * merujuk `users` dengan ON DELETE SET NULL (activity_logs.user_id dan
- * created_by di 6 tabel transaksi), jadi menghapus user akan mengosongkan
- * jejak pelaku di seluruh riwayat. Yang tersedia hanya nonaktifkan.
+ * HAPUS PERMANEN ADA, TAPI SENGAJA SEMPIT.
+ * Seluruh FK ke `users` memakai ON DELETE SET NULL, jadi menghapus akun
+ * tidak menimbulkan error — ia hanya mengosongkan jejak pelaku di riwayat
+ * secara diam-diam. Karena itu akun yang sudah punya jejak DITOLAK beserta
+ * penjelasannya (lihat UserAccountGuard::alasanTidakBisaDihapus), dan yang
+ * bisa dihapus hanya akun yang belum meninggalkan apa pun.
+ *
+ * Untuk akun yang sudah dipakai, jalurnya tetap Nonaktifkan — itu siklus
+ * hidup akun, bukan pengarsipan data.
  *
  * Guard Admin memakai pola yang sama dengan seluruh controller lain:
  * abort_unless(Auth::user()->isAdmin(), 403) — tidak ada middleware/role
@@ -268,6 +273,44 @@ class ManajemenUserController extends Controller
     // ==========================================================
     // AKTIFKAN / NONAKTIFKAN
     // ==========================================================
+
+    // ==========================================================
+    // HAPUS PERMANEN
+    //
+    // Sengaja dibuat ketat. Nonaktifkan tetap jalur utama untuk akun yang
+    // sudah dipakai; hapus permanen hanya untuk akun yang belum
+    // meninggalkan jejak apa pun — misalnya akun yang salah dibuat.
+    // ==========================================================
+
+    public function destroy(User $user)
+    {
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        $alasan = $this->guard->alasanTidakBisaDihapus($user, Auth::id());
+
+        if ($alasan !== null) {
+            return back()->withErrors(['hapus' => $alasan]);
+        }
+
+        // Diambil SEBELUM dihapus; sesudahnya tidak ada yang tersisa untuk
+        // dirujuk. Hanya nama, email, dan peran — password TIDAK PERNAH
+        // ikut dicatat, begitu pula data rahasia lain.
+        $keterangan = $user->name . ' (' . $user->email . ', ' . ($user->role ?? '-') . ')';
+        $id = $user->id;
+
+        $user->forceDelete();
+
+        ActivityLog::record(
+            action: 'permanently_deleted',
+            modelType: 'User',
+            modelId: $id,
+            description: 'AKUN DIHAPUS PERMANEN: ' . $keterangan . '. Tindakan ini tidak dapat dibatalkan.',
+        );
+
+        return redirect()
+            ->route('manajemen-user.index')
+            ->with('success', 'Akun ' . $keterangan . ' dihapus permanen.');
+    }
 
     public function status(User $user)
     {

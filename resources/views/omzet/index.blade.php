@@ -166,10 +166,10 @@
                             @endcan
                             @can('delete', $report)
                                 <form method="POST" action="{{ route('omzet.destroy', $report) }}" class="inline"
-                                      onsubmit="return confirm('Arsipkan laporan omzet ini? Periodenya bisa diisi ulang nanti.');">
+                                      onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:underline">Arsipkan</button>
+                                    <button type="submit" class="text-red-600 hover:underline">Hapus Permanen</button>
                                 </form>
                             @endcan
                         </td>

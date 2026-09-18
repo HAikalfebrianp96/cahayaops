@@ -7,27 +7,17 @@
     <div class="flex items-center justify-between">
         <div>
             <h2 class="text-lg font-semibold text-gray-800">
-                {{ $arsip ? 'Arsip Kategori' : 'Kategori Pengeluaran' }}
+                Kategori Pengeluaran
             </h2>
             <p class="text-sm text-gray-500">
-                {{ $arsip
-                    ? 'Kategori yang dihapus tetap tersimpan — pengeluaran yang memakainya tidak terpengaruh.'
-                    : 'Kelola daftar kategori. Nonaktifkan untuk kategori yang tak dipakai lagi, hapus untuk yang salah dibuat.' }}
+                Kelola daftar kategori. Nonaktifkan untuk kategori yang tak dipakai lagi, hapus untuk yang salah dibuat.
             </p>
         </div>
         <div class="flex items-center gap-2">
-            @if ($arsip)
-                <a href="{{ route('koperasi.kategori-pengeluaran.index') }}" class="text-sm text-gray-500 px-4 py-2 hover:text-gray-700">← Daftar Kategori</a>
-            @else
-                @if ($jumlahTerhapus > 0)
-                    <a href="{{ route('koperasi.kategori-pengeluaran.index', ['arsip' => 1]) }}" class="text-sm text-gray-500 px-4 py-2 hover:text-gray-700">
-                        Arsip ({{ $jumlahTerhapus }})
-                    </a>
-                @endif
-                <a href="{{ route('koperasi.kategori-pengeluaran.create') }}" class="bg-koperasi-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90 transition">
+                                <a href="{{ route('koperasi.kategori-pengeluaran.create') }}" class="bg-koperasi-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90 transition">
                     + Tambah Kategori
                 </a>
-            @endif
+
         </div>
     </div>
 
@@ -54,33 +44,25 @@
                         <td class="py-2 px-4">{{ $k->pengeluaran_count }} transaksi</td>
                         <td class="py-2 px-4 space-x-2 whitespace-nowrap">
                             <a href="{{ route('koperasi.kategori-pengeluaran.edit', $k) }}" class="text-koperasi-primary hover:underline">Edit</a>
-                            @unless ($arsip)
-                            <form method="POST" action="{{ route('koperasi.kategori-pengeluaran.toggle', $k) }}" class="inline"
+                                                        <form method="POST" action="{{ route('koperasi.kategori-pengeluaran.toggle', $k) }}" class="inline"
                                   onsubmit="return confirm('{{ $k->status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan' }} kategori \'{{ $k->nama }}\'?');">
                                 @csrf
                                 <button type="submit" class="text-xs {{ $k->status === 'Aktif' ? 'text-red-500' : 'text-green-600' }} hover:underline">
                                     {{ $k->status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan' }}
                                 </button>
                             </form>
-                            @endunless
-                            @if ($arsip)
-                                <form method="POST" action="{{ route('koperasi.kategori-pengeluaran.restore', $k->id) }}" class="inline"
-                                      onsubmit="return confirm('Pulihkan kategori ini?');">
-                                    @csrf
-                                    <button type="submit" class="text-green-700 hover:underline">Pulihkan</button>
-                                </form>
-                            @else
+
                                 {{-- Nonaktifkan (toggle) dan Hapus BERBEDA: nonaktifkan untuk
                                      kategori yang masih sah tapi tak dipakai lagi, hapus untuk
                                      kategori yang memang salah dibuat. Keduanya sama-sama tidak
                                      menghilangkan barisnya. --}}
                                 <form method="POST" action="{{ route('koperasi.kategori-pengeluaran.destroy', $k) }}" class="inline"
-                                      onsubmit="return confirm('Arsipkan kategori ini?\n\nData akan dipindahkan ke Arsip Data dan masih dapat dipulihkan. Pengeluaran yang sudah memakainya tidak terpengaruh.');">
+                                      onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:underline">Arsipkan</button>
+                                    <button type="submit" class="text-red-600 hover:underline">Hapus Permanen</button>
                                 </form>
-                            @endif
+
                         </td>
                     </tr>
                 @empty

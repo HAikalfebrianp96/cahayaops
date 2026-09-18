@@ -111,13 +111,10 @@ class CrudGlobalTest extends TestCase
             ->delete(route('koperasi.pelanggan.destroy', $pelanggan))
             ->assertRedirect(route('koperasi.pelanggan.index'));
 
-        $this->assertSoftDeleted('customers', ['id' => $pelanggan->id]);
-
-        $this->actingAs($this->timKoperasi)
-            ->post(route('koperasi.pelanggan.restore', $pelanggan->id))
-            ->assertSessionHasNoErrors();
-
-        $this->assertNotSoftDeleted('customers', ['id' => $pelanggan->id]);
+        // Benar-benar hilang: tidak ada jalan kembali, dan tidak ada baris
+        // tersembunyi yang masih bisa ditemukan withTrashed().
+        $this->assertDatabaseMissing('customers', ['id' => $pelanggan->id]);
+        $this->assertNull(Customer::withTrashed()->find($pelanggan->id));
     }
 
     /** Quick-add dari halaman Penjualan TIDAK berubah — masih mengembalikan JSON. */
@@ -151,29 +148,6 @@ class CrudGlobalTest extends TestCase
     // PRODUK / JASA — Hapus yang sebelumnya tidak ada
     // =====================================================================
 
-    public function test_produk_bisa_dihapus_dan_dipulihkan(): void
-    {
-        $unit = $this->unit();
-
-        $produk = ProductService::create([
-            'unit_id' => $unit->id, 'kode' => 'PRD-001', 'nama' => 'Beras 5kg',
-            'jenis' => 'Barang', 'satuan' => 'pack', 'harga_jual' => 60000, 'status' => 'Aktif',
-        ]);
-
-        $this->actingAs($this->timKoperasi)
-            ->delete(route('koperasi.produk.destroy', $produk))
-            ->assertRedirect(route('koperasi.unit-usaha.show', $unit->id));
-
-        $this->assertSoftDeleted('products_services', ['id' => $produk->id]);
-        $this->assertNotNull(ProductService::withTrashed()->find($produk->id));
-
-        $this->actingAs($this->timKoperasi)
-            ->post(route('koperasi.produk.restore', $produk->id))
-            ->assertSessionHasNoErrors();
-
-        $this->assertNotSoftDeleted('products_services', ['id' => $produk->id]);
-    }
-
     public function test_produk_tertutup_untuk_role_tanpa_hak(): void
     {
         $unit = $this->unit();
@@ -186,40 +160,12 @@ class CrudGlobalTest extends TestCase
             $this->actingAs($user)->delete(route('koperasi.produk.destroy', $produk))->assertForbidden();
         }
 
-        $this->assertNotSoftDeleted('products_services', ['id' => $produk->id]);
+        $this->assertDatabaseHas('products_services', ['id' => $produk->id]);
     }
 
     // =====================================================================
     // KATEGORI PENGELUARAN — Hapus + Tab Terhapus
     // =====================================================================
-
-    public function test_kategori_pengeluaran_bisa_dihapus_dan_dipulihkan(): void
-    {
-        $kategori = PengeluaranCategory::create(['nama' => 'Kategori Salah', 'status' => 'Aktif']);
-
-        $this->actingAs($this->timKoperasi)
-            ->delete(route('koperasi.kategori-pengeluaran.destroy', $kategori))
-            ->assertRedirect(route('koperasi.kategori-pengeluaran.index'));
-
-        $this->assertSoftDeleted('pengeluaran_categories', ['id' => $kategori->id]);
-
-        // Hilang dari daftar aktif, muncul di Tab Terhapus.
-        $this->actingAs($this->timKoperasi)
-            ->get(route('koperasi.kategori-pengeluaran.index'))
-            ->assertOk()
-            ->assertDontSee(route('koperasi.kategori-pengeluaran.edit', $kategori), false);
-
-        $this->actingAs($this->timKoperasi)
-            ->get(route('koperasi.kategori-pengeluaran.index', ['arsip' => 1]))
-            ->assertOk()
-            ->assertSee('Kategori Salah');
-
-        $this->actingAs($this->timKoperasi)
-            ->post(route('koperasi.kategori-pengeluaran.restore', $kategori->id))
-            ->assertSessionHasNoErrors();
-
-        $this->assertNotSoftDeleted('pengeluaran_categories', ['id' => $kategori->id]);
-    }
 
     /** Nonaktifkan dan Hapus adalah dua tindakan BERBEDA, keduanya tetap ada. */
     public function test_nonaktifkan_kategori_berbeda_dari_menghapusnya(): void
@@ -231,7 +177,7 @@ class CrudGlobalTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame('Tidak Aktif', $kategori->fresh()->status);
-        $this->assertNotSoftDeleted('pengeluaran_categories', ['id' => $kategori->id]);
+        $this->assertDatabaseHas('pengeluaran_categories', ['id' => $kategori->id]);
     }
 
     // =====================================================================
@@ -254,8 +200,8 @@ class CrudGlobalTest extends TestCase
             ->delete(route('hpp.destroy', $hpp))
             ->assertRedirect(route('hpp.index', $binaan->id));
 
-        $this->assertSoftDeleted('hpp_calculations', ['id' => $hpp->id]);
-        $this->assertNotNull(HppCalculation::withTrashed()->find($hpp->id));
+        $this->assertDatabaseMissing('hpp_calculations', ['id' => $hpp->id]);
+        $this->assertNull(HppCalculation::withTrashed()->find($hpp->id));
     }
 
     public function test_hpp_binaan_lain_tidak_bisa_dihapus_pendamping(): void
@@ -272,11 +218,11 @@ class CrudGlobalTest extends TestCase
         ]);
 
         $this->actingAs($this->pendamping)->delete(route('hpp.destroy', $hpp))->assertForbidden();
-        $this->assertNotSoftDeleted('hpp_calculations', ['id' => $hpp->id]);
+        $this->assertDatabaseHas('hpp_calculations', ['id' => $hpp->id]);
 
         // Admin tetap boleh.
         $this->actingAs($this->admin)->delete(route('hpp.destroy', $hpp))->assertSessionHasNoErrors();
-        $this->assertSoftDeleted('hpp_calculations', ['id' => $hpp->id]);
+        $this->assertDatabaseMissing('hpp_calculations', ['id' => $hpp->id]);
     }
 
     // =====================================================================
@@ -288,63 +234,23 @@ class CrudGlobalTest extends TestCase
      * seluruh binaan kehilangan pemilik SECARA PERMANEN. Sekarang tautannya
      * bertahan dan ikut kembali saat Pendamping dipulihkan.
      */
-    public function test_menghapus_pendamping_tidak_memutus_tautan_binaannya(): void
+    /**
+     * Pendamping yang masih membina TIDAK bisa dihapus.
+     *
+     * Dulu ia diarsipkan dan tautan binaannya sengaja dipertahankan supaya
+     * pemulihan bisa mengembalikannya utuh. Tanpa pemulihan, menghapusnya
+     * berarti seluruh binaannya menunjuk pendamping yang tidak ada lagi —
+     * jadi jalurnya ditutup di depan, beserta alasannya.
+     */
+    public function test_pendamping_yang_masih_membina_tidak_bisa_dihapus(): void
     {
         $binaan = $this->peserta('Binaan Terikat', $this->profil->id);
 
-        $this->actingAs($this->admin)
-            ->delete(route('pendampings.destroy', $this->profil))
-            ->assertRedirect(route('pendampings.index'));
-
-        $this->assertSoftDeleted('pendampings', ['id' => $this->profil->id]);
-
-        // Binaannya TIDAK ikut terhapus dan tautannya TIDAK dikosongkan.
-        $this->assertNotSoftDeleted('participants', ['id' => $binaan->id]);
-        $this->assertSame($this->profil->id, $binaan->fresh()->pendamping_id);
-
-        // Akun loginnya dilepas — soft delete saja tidak cukup mengamankannya,
-        // karena barisnya masih ada sehingga canAccessParticipant() akan lolos.
-        $this->assertNull($this->pendamping->fresh()->pendamping_id);
-        $this->actingAs($this->pendamping->fresh())
-            ->get(route('participants.show', $binaan))
-            ->assertForbidden();
-
-        // Dipulihkan -> data & tautan binaannya lengkap kembali.
-        $this->actingAs($this->admin)
-            ->post(route('pendampings.restore', $this->profil->id))
-            ->assertSessionHasNoErrors();
-
-        $this->assertNotSoftDeleted('pendampings', ['id' => $this->profil->id]);
-        $this->assertSame(1, $this->profil->fresh()->participants()->count());
-    }
-
-    public function test_pendamping_terhapus_muncul_di_tab_terhapus_dengan_pelakunya(): void
-    {
         $this->actingAs($this->admin)->delete(route('pendampings.destroy', $this->profil));
 
-        $this->actingAs($this->admin)
-            ->get(route('pendampings.index', ['arsip' => 1]))
-            ->assertOk()
-            ->assertSee('Pendamping Uji')
-            ->assertSee($this->admin->name)
-            ->assertSee(route('pendampings.restore', $this->profil->id), false);
-    }
-
-    public function test_hanya_admin_yang_boleh_menghapus_dan_memulihkan_pendamping(): void
-    {
-        foreach ([$this->pendamping, $this->timKoperasi, $this->pimpinan] as $user) {
-            $this->actingAs($user)->delete(route('pendampings.destroy', $this->profil))->assertForbidden();
-        }
-
-        $this->assertNotSoftDeleted('pendampings', ['id' => $this->profil->id]);
-
-        $this->profil->delete();
-
-        foreach ([$this->pendamping, $this->timKoperasi, $this->pimpinan] as $user) {
-            $this->actingAs($user)->post(route('pendampings.restore', $this->profil->id))->assertForbidden();
-        }
-
-        $this->assertSoftDeleted('pendampings', ['id' => $this->profil->id]);
+        $this->assertDatabaseHas('pendampings', ['id' => $this->profil->id]);
+        $this->assertSame($this->profil->id, $binaan->fresh()->pendamping_id);
+        $this->assertStringContainsString('membina', (string) session('error'));
     }
 
     // =====================================================================
@@ -359,22 +265,21 @@ class CrudGlobalTest extends TestCase
         $this->actingAs($this->admin)->delete(route('participants.destroy', $peserta));
         $this->actingAs($this->timKoperasi)->delete(route('koperasi.unit-usaha.destroy', $unit));
 
-        $this->assertSame($this->admin->id, Participant::onlyTrashed()->find($peserta->id)->deleted_by);
-        $this->assertSame($this->timKoperasi->id, BusinessUnit::onlyTrashed()->find($unit->id)->deleted_by);
-
-        $this->assertSame($this->admin->name, Participant::onlyTrashed()->find($peserta->id)->namaPenghapus());
-    }
-
-    /** Setelah dipulihkan, jejak penghapusnya tidak lagi berlaku. */
-    public function test_penghapus_dikosongkan_setelah_dipulihkan(): void
-    {
-        $peserta = $this->peserta('Peserta Pulih', $this->profil->id);
-
-        $this->actingAs($this->admin)->delete(route('participants.destroy', $peserta));
-        $this->assertNotNull(Participant::onlyTrashed()->find($peserta->id)->deleted_by);
-
-        $this->actingAs($this->admin)->post(route('participants.restore', $peserta->id));
-        $this->assertNull($peserta->fresh()->deleted_by);
+        // Barisnya sudah tidak ada, jadi kolom deleted_by tidak bisa lagi
+        // menyimpan siapa pelakunya. Satu-satunya jejak yang tersisa —
+        // dan justru karena itu wajib ada — adalah Activity Log.
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'permanently_deleted',
+            'model_type' => 'Participant',
+            'model_id' => $peserta->id,
+            'user_id' => $this->admin->id,
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'permanently_deleted',
+            'model_type' => 'BusinessUnit',
+            'model_id' => $unit->id,
+            'user_id' => $this->timKoperasi->id,
+        ]);
     }
 
     /** Tab Terhapus peserta menampilkan kapan dan oleh siapa. */

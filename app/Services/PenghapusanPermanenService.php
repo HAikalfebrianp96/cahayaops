@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\BusinessUnit;
 use App\Models\Customer;
 use App\Models\HppCalculation;
+use App\Models\ImpactProgram;
 use App\Models\KoperasiMember;
 use App\Models\LegalitasRecord;
 use App\Models\MemberSaving;
@@ -17,6 +19,7 @@ use App\Models\PendampinganRecord;
 use App\Models\PengeluaranCategory;
 use App\Models\ProductService;
 use App\Models\SalesTransaction;
+use App\Models\ShuPeriod;
 use App\Models\TrainingRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -36,16 +39,15 @@ use Illuminate\Support\Facades\Storage;
  * hilang selamanya.
  *
  * ==========================================================================
- * TIGA PENGAMAN, BERURUTAN
+ * DUA PENGAMAN
  * ==========================================================================
  *
- * 1. HARUS SUDAH DIARSIPKAN LEBIH DULU.
- *    Tidak ada jalan dari "aktif" langsung ke "hilang selamanya". Data yang
- *    masih aktif harus diarsipkan dulu, dan pengarsipan itu sendiri sudah
- *    punya konfirmasinya. Artinya penghapusan permanen selalu merupakan
- *    keputusan KEDUA, diambil pada waktu yang berbeda dari yang pertama.
+ * Konsep Arsip sudah dilepas dari CahayaOS (keputusan pemilik 18 Sep 2026),
+ * jadi tidak ada lagi tahap antara "aktif" dan "hilang". Yang menahan
+ * penghapusan sekarang HANYA tanggungan histori di bawah ini — dan justru
+ * karena itu ia tidak boleh dilonggarkan.
  *
- * 2. TIDAK BOLEH PUNYA TANGGUNGAN HISTORI.
+ * 1. TIDAK BOLEH PUNYA TANGGUNGAN HISTORI.
  *    Inilah inti berkas ini. Sebuah produk yang pernah terjual, seorang
  *    peserta yang punya catatan pendampingan, seorang anggota yang punya
  *    simpanan — semuanya sudah menjadi bagian dari angka yang pernah
@@ -53,8 +55,8 @@ use Illuminate\Support\Facades\Storage;
  *    lagi. Data semacam itu DITOLAK, dan alasannya disebutkan dengan
  *    bahasa yang bisa dipahami operator, bukan pesan error teknis.
  *
- * 3. HANYA ADMIN, DENGAN KALIMAT KONFIRMASI YANG DIKETIK ULANG.
- *    Diperiksa di controller, bukan di sini.
+ * 2. OTORISASI + KONFIRMASI DI APLIKASI.
+ *    Diperiksa di controller/policy modul masing-masing, bukan di sini.
  *
  * ==========================================================================
  * KENAPA TIDAK ADA PENANDA "DATA TESTING"
@@ -83,12 +85,12 @@ class PenghapusanPermanenService
     public const KONFIRMASI = 'HAPUS PERMANEN';
 
     /**
-     * Modul yang boleh dihapus permanen, dipetakan dari kunci tab Arsip.
+     * Daftar modul yang mengenal hapus permanen, dengan kunci yang stabil.
      *
-     * Kuncinya SENGAJA sama dengan kunci tab di ArsipController: kalau suatu
-     * hari ada tab baru yang lupa didaftarkan di sini, akibatnya adalah
-     * tombolnya tidak muncul — bukan penghapusan yang lolos tanpa pengaman.
-     * Kelalaian yang aman.
+     * Halaman Arsip yang dulu memakai daftar ini sudah dihapus, tapi daftarnya
+     * tetap berguna sebagai satu tempat untuk melihat modul mana saja yang
+     * ikut aturan penghapusan di berkas ini — dan sebagai tempat mendaftarkan
+     * modul baru. Penjagaan sebenarnya ada di alasanTertahan(), bukan di sini.
      *
      * @return array<string, class-string<Model>>
      */
@@ -142,7 +144,10 @@ class PenghapusanPermanenService
      */
     public function alasanTertahan(Model $model): ?string
     {
-        // Pengaman 1a — catatan uang: harus sudah DIBATALKAN lebih dulu.
+        // Catatan uang: harus sudah DIBATALKAN lebih dulu. Ini BUKAN sisa
+        // konsep arsip — pembatalan adalah koreksi akuntansi yang berdiri
+        // sendiri, dan tetap jadi syarat supaya angka laporan yang sudah
+        // terbit tidak berubah diam-diam.
         if ($model instanceof SalesTransaction || $model instanceof Pengeluaran || $model instanceof MemberSaving) {
             $alasanUang = $this->tahanCatatanUang($model);
 
@@ -153,12 +158,8 @@ class PenghapusanPermanenService
             return null;
         }
 
-        // Pengaman 1b — data bermaster: harus sudah lewat tahap arsip.
-        if (method_exists($model, 'trashed') && ! $model->trashed()) {
-            return 'Data ini masih aktif. Arsipkan dulu, baru bisa dihapus permanen.';
-        }
-
-        // Pengaman 2 — tanggungan histori, per jenis data.
+        // Tanggungan histori, per jenis data. Data aktif kini boleh langsung
+        // dihapus permanen — yang menahannya hanya jejak di bawah ini.
         return match (true) {
             $model instanceof Participant => $this->tahanPeserta($model),
             $model instanceof Pendamping => $this->tahanPendamping($model),
@@ -167,6 +168,8 @@ class PenghapusanPermanenService
             $model instanceof ProductService => $this->tahanProduk($model),
             $model instanceof Customer => $this->tahanPelanggan($model),
             $model instanceof PengeluaranCategory => $this->tahanKategori($model),
+            $model instanceof ImpactProgram => $this->tahanProgramDampak($model),
+            $model instanceof ShuPeriod => $this->tahanPeriodeShu($model),
             default => null,
         };
     }
@@ -201,10 +204,7 @@ class PenghapusanPermanenService
         }
 
         // ============================================================
-        // BERKAS UNGGAHAN DIBUANG HANYA DI SINI — bukan saat diarsipkan.
-        //
-        // Pengarsipan harus bisa dibatalkan, dan itu mustahil kalau
-        // dokumennya sudah hilang dari penyimpanan.
+        // BERKAS UNGGAHAN DIBUANG DI SINI, bersama barisnya.
         //
         // Disapu berdasarkan NAMA KOLOM, bukan jenis modelnya.
         //
@@ -231,6 +231,45 @@ class PenghapusanPermanenService
         $model->forceDelete();
     }
 
+    /**
+     * Satu langkah lengkap: periksa pengaman, catat ringkasan, hapus, dan
+     * tulis Activity Log. Mengembalikan ringkasan untuk pesan ke pengguna.
+     *
+     * Dipakai SELURUH controller supaya urutan ini tidak disalin dua puluh
+     * kali. Pada penghapusan permanen, satu salinan yang lupa mencatat
+     * Activity Log berarti data hilang tanpa jejak siapa pun yang
+     * menghapusnya — dan itu tidak menimbulkan error apa pun.
+     *
+     * @throws \RuntimeException bila data tertahan; panggil alasanTertahan()
+     *                           lebih dulu supaya pesannya bisa ditampilkan
+     *                           sebagai penjelasan, bukan sebagai kegagalan.
+     */
+    public function hapusDenganCatatan(Model $model): string
+    {
+        $alasan = $this->alasanTertahan($model);
+
+        if ($alasan !== null) {
+            throw new \RuntimeException($alasan);
+        }
+
+        // Id dan ringkasan diambil SEBELUM dihapus. Setelah forceDelete tidak
+        // ada apa pun yang tersisa untuk dirujuk, dan baris Activity Log
+        // inilah satu-satunya bukti bahwa data ini pernah ada.
+        $id = $model->getKey();
+        $jenis = class_basename($model);
+        $ringkasan = $this->ringkasan($model);
+
+        $this->hapus($model);
+
+        ActivityLog::record(
+            action: 'permanently_deleted',
+            modelType: $jenis,
+            modelId: $id,
+            description: 'DIHAPUS PERMANEN: ' . $ringkasan . '. Tindakan ini tidak dapat dibatalkan.',
+        );
+
+        return $ringkasan;
+    }
     /**
      * Ringkasan isi data untuk dicatat di Activity Log SEBELUM dihapus.
      *
@@ -314,7 +353,7 @@ class PenghapusanPermanenService
         ];
 
         if ($peserta->koperasiMember()->withTrashed()->exists()) {
-            return 'Peserta ini terdaftar sebagai anggota koperasi. Hapus permanen keanggotaannya dulu, atau biarkan tetap diarsipkan.';
+            return 'Peserta ini terdaftar sebagai anggota koperasi. Hapus permanen keanggotaannya lebih dulu.';
         }
 
         return $this->rangkumJejak($jejak, 'Peserta');
@@ -325,7 +364,7 @@ class PenghapusanPermanenService
         $jumlah = $pendamping->participants()->withTrashed()->count();
 
         if ($jumlah > 0) {
-            return "Pendamping ini masih tercatat membina {$jumlah} peserta. Pindahkan pesertanya lebih dulu, atau biarkan tetap diarsipkan.";
+            return "Pendamping ini masih tercatat membina {$jumlah} peserta. Pindahkan pesertanya ke pendamping lain lebih dulu.";
         }
 
         return null;
@@ -336,7 +375,17 @@ class PenghapusanPermanenService
         $jumlah = $anggota->savings()->count();
 
         if ($jumlah > 0) {
-            return "Anggota ini punya {$jumlah} entri simpanan. Riwayat simpanan adalah catatan uang anggota dan tidak boleh hilang — biarkan tetap diarsipkan.";
+            return "Anggota ini punya {$jumlah} entri simpanan. Riwayat simpanan adalah catatan uang anggota dan tidak boleh hilang, jadi anggotanya tidak bisa dihapus.";
+        }
+
+        // shu_allocations.koperasi_member_id memakai ON DELETE CASCADE:
+        // tanpa pemeriksaan ini, menghapus anggota ikut menghapus catatan
+        // pembagian SHU-nya secara diam-diam, dan total SHU periode itu
+        // tidak lagi cocok dengan yang pernah dibagikan.
+        $alokasi = DB::table('shu_allocations')->where('koperasi_member_id', $anggota->id)->count();
+
+        if ($alokasi > 0) {
+            return "Anggota ini punya {$alokasi} catatan pembagian SHU. Menghapusnya membuat total SHU periode itu tidak lagi cocok dengan yang pernah dibagikan.";
         }
 
         return null;
@@ -348,6 +397,10 @@ class PenghapusanPermanenService
             'transaksi penjualan' => DB::table('sales_transactions')->where('unit_id', $unit->id)->count(),
             'pengeluaran' => DB::table('pengeluaran')->where('business_unit_id', $unit->id)->count(),
             'produk & jasa' => DB::table('products_services')->where('unit_id', $unit->id)->count(),
+            // koperasi_members.unit_usaha_id memakai ON DELETE SET NULL:
+            // tanpa baris ini, menghapus unit akan melepas anggotanya dari
+            // unitnya tanpa satu pun peringatan.
+            'anggota terdaftar' => DB::table('koperasi_members')->where('unit_usaha_id', $unit->id)->count(),
         ];
 
         return $this->rangkumJejak($jejak, 'Unit usaha');
@@ -358,7 +411,7 @@ class PenghapusanPermanenService
         $jumlah = DB::table('sales_transaction_items')->where('product_service_id', $produk->id)->count();
 
         if ($jumlah > 0) {
-            return "Produk ini sudah dipakai di {$jumlah} baris transaksi penjualan. Menghapusnya membuat transaksi lama tidak bisa ditelusuri — biarkan tetap diarsipkan.";
+            return "Produk ini sudah dipakai di {$jumlah} baris transaksi penjualan. Menghapusnya membuat transaksi lama tidak bisa ditelusuri.";
         }
 
         return null;
@@ -369,7 +422,42 @@ class PenghapusanPermanenService
         $jumlah = $pelanggan->salesTransactions()->count();
 
         if ($jumlah > 0) {
-            return "Pelanggan ini punya {$jumlah} transaksi penjualan. Menghapusnya membuat transaksi lama kehilangan pemiliknya — biarkan tetap diarsipkan.";
+            return "Pelanggan ini punya {$jumlah} transaksi penjualan. Menghapusnya membuat transaksi lama kehilangan pemiliknya.";
+        }
+
+        return null;
+    }
+
+    /**
+     * Program dampak: seluruh anaknya memakai ON DELETE CASCADE.
+     *
+     * Artinya menghapus programnya akan ikut menghapus outcome, investasi,
+     * dan perhitungan SROI-nya tanpa satu pun peringatan dari database.
+     * Justru karena cascade-nya diam, penolakannya harus eksplisit di sini.
+     */
+    private function tahanProgramDampak(ImpactProgram $program): ?string
+    {
+        $jejak = [
+            'outcome' => DB::table('impact_outcomes')->where('impact_program_id', $program->id)->count(),
+            'catatan investasi' => DB::table('program_investments')->where('impact_program_id', $program->id)->count(),
+            'perhitungan SROI' => DB::table('sroi_calculations')->where('impact_program_id', $program->id)->count(),
+        ];
+
+        return $this->rangkumJejak($jejak, 'Program dampak');
+    }
+
+    /**
+     * Periode SHU: shu_allocations memakai ON DELETE CASCADE.
+     *
+     * Pembagian SHU adalah catatan uang anggota. Menghapus periodenya akan
+     * menghapus seluruh alokasi di dalamnya sekaligus.
+     */
+    private function tahanPeriodeShu(ShuPeriod $periode): ?string
+    {
+        $jumlah = DB::table('shu_allocations')->where('shu_period_id', $periode->id)->count();
+
+        if ($jumlah > 0) {
+            return "Periode SHU ini punya {$jumlah} catatan pembagian ke anggota. Menghapusnya menghapus seluruh pembagian SHU periode tersebut.";
         }
 
         return null;
@@ -380,7 +468,7 @@ class PenghapusanPermanenService
         $jumlah = $kategori->pengeluaran()->count();
 
         if ($jumlah > 0) {
-            return "Kategori ini masih dipakai {$jumlah} pengeluaran. Menghapusnya membuat pengeluaran lama kehilangan kategorinya — biarkan tetap diarsipkan.";
+            return "Kategori ini masih dipakai {$jumlah} pengeluaran. Menghapusnya membuat pengeluaran lama kehilangan kategorinya.";
         }
 
         return null;
@@ -405,6 +493,6 @@ class PenghapusanPermanenService
         }
 
         return "{$sebutan} ini punya " . implode(', ', $ada)
-            . '. Data itu sudah masuk ke laporan yang pernah diterbitkan — biarkan tetap diarsipkan.';
+            . '. Data itu sudah masuk ke laporan yang pernah diterbitkan, jadi tidak bisa dihapus.';
     }
 }

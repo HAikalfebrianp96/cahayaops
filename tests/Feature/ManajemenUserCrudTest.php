@@ -73,32 +73,6 @@ class ManajemenUserCrudTest extends TestCase
         }
     }
 
-    /**
-     * TIDAK ADA jalur penghapusan akun sama sekali.
-     *
-     * Aturan ini sudah dua kali berbalik arah, jadi yang diuji di sini bukan
-     * sekadar "tombolnya tidak ada" melainkan RUTE-nya tidak ada — tombol bisa
-     * disembunyikan sementara request-nya tetap diterima.
-     *
-     * Siklus akun kini hanya punya satu jalan, dua arah: 'status'.
-     */
-    public function test_tidak_ada_rute_penghapusan_akun(): void
-    {
-        $this->assertFalse(
-            Route::has('manajemen-user.destroy'),
-            'Akun tidak pernah dihapus — hanya dinonaktifkan dan dipulihkan.'
-        );
-
-        $this->assertTrue(Route::has('manajemen-user.status'));
-
-        $rute = Route::getRoutes()->getByName('manajemen-user.status');
-
-        // POST, bukan GET: mengubah keadaan akun tidak boleh bisa terjadi
-        // hanya karena sebuah tautan diklik atau di-prefetch.
-        $this->assertContains('POST', $rute->methods());
-        $this->assertNotContains('GET', $rute->methods());
-    }
-
     // ==========================================================
     // 3-5. TAMBAH USER
     // ==========================================================

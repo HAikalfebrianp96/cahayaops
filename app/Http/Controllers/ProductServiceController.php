@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\BusinessUnit;
 use App\Models\ProductService;
 use Illuminate\Http\Request;
@@ -88,23 +89,20 @@ class ProductServiceController extends Controller
         abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);
 
         $unitId = $produk->unit_id;
-        $produk->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($produk);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($produk);
 
         return redirect()
             ->route('koperasi.unit-usaha.show', $unitId)
-            ->with('success', 'Produk/jasa "' . $produk->nama . '" dipindahkan ke arsip. Riwayat penjualannya tetap tersimpan.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(ProductService $produk)
-    {
-        abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);
-
-        $produk->restore();
-
-        return redirect()
-            ->route('koperasi.unit-usaha.show', $produk->unit_id)
-            ->with('success', 'Produk/jasa "' . $produk->nama . '" berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     public function edit(ProductService $produk)

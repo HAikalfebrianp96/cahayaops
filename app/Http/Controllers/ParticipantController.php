@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\ActivityLog;
 use App\Models\Participant;
 use App\Models\Pendamping;
@@ -40,14 +41,9 @@ class ParticipantController extends Controller
     {
         Gate::authorize('viewAny', Participant::class);
 
-        // Arsip peserta terhapus — hanya kalau diminta lewat ?arsip=1.
-        // Daftar normal TIDAK berubah sama sekali.
-        $arsip = $request->boolean('arsip');
-
         // koperasiMember & penghapus ikut di-eager-load supaya kolom "Koperasi"
         // dan "Dihapus oleh" tidak menembak satu query per baris.
-        $query = Participant::with(['pendamping', 'koperasiMember'])
-            ->when($arsip, fn ($q) => $q->onlyTrashed()->with('penghapus'));
+        $query = Participant::with(['pendamping', 'koperasiMember']);
 
         $this->terapkanFilter($query, $request);
 
@@ -55,8 +51,6 @@ class ParticipantController extends Controller
 
         return view('participants.index', array_merge($this->dataFilter($request), [
             'participants' => $participants,
-            'arsip' => $arsip,
-            'jumlahTerhapus' => Participant::onlyTrashed()->count(),
         ]));
     }
 
@@ -152,23 +146,20 @@ class ParticipantController extends Controller
     {
         Gate::authorize('delete', $participant);
 
-        $participant->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($participant);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($participant);
 
         return redirect()
             ->route('participants.index')
-            ->with('success', 'Peserta ' . $participant->nama_peserta . ' dipindahkan ke arsip. Data tidak hilang dan bisa dipulihkan.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(Participant $participant)
-    {
-        Gate::authorize('restore', $participant);
-
-        $participant->restore();
-
-        return redirect()
-            ->route('participants.index')
-            ->with('success', 'Peserta ' . $participant->nama_peserta . ' berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**
@@ -267,8 +258,7 @@ class ParticipantController extends Controller
     {
         Gate::authorize('viewAny', Participant::class);
 
-        $query = Participant::with(['pendamping', 'koperasiMember'])
-            ->when($request->boolean('arsip'), fn ($q) => $q->onlyTrashed());
+        $query = Participant::with(['pendamping', 'koperasiMember']);
 
         self::terapkanFilter($query, $request);
 

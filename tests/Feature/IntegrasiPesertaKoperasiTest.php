@@ -442,35 +442,6 @@ class IntegrasiPesertaKoperasiTest extends TestCase
     // SOFT DELETE & RESTORE KEANGGOTAAN
     // =====================================================================
 
-    public function test_anggota_dihapus_memakai_soft_delete_dan_bisa_dipulihkan(): void
-    {
-        $this->actingAs($this->timKoperasi)
-            ->post(route('koperasi.anggota.store'), $this->formAnggota([
-                'participant_id' => $this->ahmad->id,
-                'simpanan_pokok' => 50000,
-            ]));
-
-        $anggota = KoperasiMember::first();
-
-        $this->actingAs($this->timKoperasi)
-            ->delete(route('koperasi.anggota.destroy', $anggota))
-            ->assertRedirect(route('koperasi.anggota.index'));
-
-        $this->assertSoftDeleted('koperasi_members', ['id' => $anggota->id]);
-
-        // Identitas pesertanya SAMA SEKALI tidak tersentuh.
-        $this->assertNotSoftDeleted('participants', ['id' => $this->ahmad->id]);
-        // Riwayat simpanannya tetap utuh.
-        $this->assertDatabaseHas('member_savings', ['koperasi_member_id' => $anggota->id]);
-
-        $this->actingAs($this->timKoperasi)
-            ->post(route('koperasi.anggota.restore', $anggota->id))
-            ->assertRedirect(route('koperasi.anggota.index'));
-
-        $this->assertNotSoftDeleted('koperasi_members', ['id' => $anggota->id]);
-        $this->assertEqualsWithDelta(50000, $anggota->fresh()->totalSimpanan(), 0.01);
-    }
-
     /** Setelah keanggotaan diarsipkan, pesertanya boleh didaftarkan lagi. */
     public function test_peserta_bisa_didaftarkan_lagi_setelah_keanggotaan_diarsipkan(): void
     {

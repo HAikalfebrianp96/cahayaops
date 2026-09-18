@@ -5,28 +5,18 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
             <h2 class="text-[20px] font-bold text-text-main">
-                {{ $arsip ? 'Arsip Pendamping' : 'Pendamping' }}
+                Pendamping
             </h2>
             <p class="text-sm text-text-secondary mt-0.5">
-                {{ $arsip
-                    ? 'Pendamping yang dihapus tidak hilang — binaannya tetap tertaut dan ikut kembali saat dipulihkan.'
-                    : 'Kelola pendamping dan peserta binaan.' }}
+                Kelola pendamping dan peserta binaan.
             </p>
         </div>
         <div class="flex items-center gap-2">
-            @if ($arsip)
-                <a href="{{ route('pendampings.index') }}"
-                   class="text-sm text-text-secondary px-4 py-2.5 hover:text-text-main">← Daftar Pendamping</a>
-            @else
-                @if ($jumlahTerhapus > 0)
-                    <a href="{{ route('pendampings.index', ['arsip' => 1]) }}"
-                       class="text-sm text-text-secondary px-4 py-2.5 hover:text-text-main">Arsip ({{ $jumlahTerhapus }})</a>
-                @endif
-                <a href="{{ route('pendampings.create') }}"
+                                <a href="{{ route('pendampings.create') }}"
                    class="inline-flex items-center justify-center bg-cahaya-primary text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:opacity-90 transition">
                     + Tambah Pendamping
                 </a>
-            @endif
+
         </div>
     </div>
 
@@ -108,18 +98,6 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-3 whitespace-nowrap">
-                                    @if ($arsip)
-                                        <span class="text-xs text-text-secondary">
-                                            Dihapus {{ $pendamping->deleted_at?->format('d-m-Y H:i') }}
-                                            oleh {{ $pendamping->namaPenghapus() }}
-                                        </span>
-                                        <span class="text-border-soft mx-1">|</span>
-                                        <form method="POST" action="{{ route('pendampings.restore', $pendamping->id) }}" class="inline"
-                                              onsubmit="return confirm('Pulihkan pendamping ini?\n\nSeluruh binaannya ikut kembali. Akun loginnya perlu ditautkan ulang lewat Manajemen User.');">
-                                            @csrf
-                                            <button type="submit" class="text-status-success hover:underline text-xs font-medium">Pulihkan</button>
-                                        </form>
-                                    @else
                                         <a href="{{ route('kpi-pendamping.show', $pendamping) }}" class="text-cahaya-accent hover:underline text-xs font-medium">KPI</a>
                                         <span class="text-border-soft mx-1">|</span>
                                         <a href="{{ route('pendampings.show', $pendamping) }}" class="text-status-info hover:underline text-xs font-medium">Lihat</a>
@@ -131,12 +109,12 @@
                                              akun itu langsung berhenti bisa membuka data
                                              binaan manapun. --}}
                                         <form method="POST" action="{{ route('pendampings.destroy', $pendamping) }}" class="inline"
-                                              onsubmit="return confirm('Arsipkan pendamping ini?\n\nData akan dipindahkan ke Arsip Data dan masih dapat dipulihkan. Peserta binaannya tidak ikut terhapus.');">
+                                              onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-status-danger hover:underline text-xs font-medium">Arsipkan</button>
+                                            <button type="submit" class="text-status-danger hover:underline text-xs font-medium">Hapus Permanen</button>
                                         </form>
-                                    @endif
+
                                 </td>
                             </tr>
                         @endforeach

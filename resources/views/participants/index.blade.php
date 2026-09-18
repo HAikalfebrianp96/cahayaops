@@ -8,12 +8,10 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-gray-800">
-                {{ $arsip ? 'Arsip Peserta' : 'Peserta Cahaya Preneur' }}
+                Peserta Cahaya Preneur
             </h2>
             <p class="text-sm text-gray-500">
-                {{ $arsip
-                    ? 'Peserta yang diarsipkan masih tersimpan untuk histori dan dapat dipulihkan. Yang dihapus permanen tidak dapat dipulihkan.'
-                    : 'Data peserta Program Cahaya Preneur — YBM PLN UP3 Bengkulu' }}
+                Data peserta Program Cahaya Preneur — YBM PLN UP3 Bengkulu
             </p>
         </div>
         <div class="flex items-center gap-2">
@@ -23,28 +21,17 @@
                class="text-sm text-gray-600 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition">
                 Export Excel
             </a>
-            @if ($arsip)
-                <a href="{{ route('participants.index') }}"
-                   class="text-sm text-gray-500 px-4 py-2 hover:text-gray-700">← Daftar Peserta</a>
-            @else
-                @if ($jumlahTerhapus > 0)
-                    <a href="{{ route('participants.index', ['arsip' => 1]) }}"
-                       class="text-sm text-gray-500 px-4 py-2 hover:text-gray-700">
-                        Arsip ({{ $jumlahTerhapus }})
-                    </a>
-                @endif
-                <a href="{{ route('participants.create') }}"
+                                <a href="{{ route('participants.create') }}"
                    class="inline-flex items-center justify-center bg-cahaya-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-cahaya-primary/90 transition">
                     + Tambah Peserta
                 </a>
-            @endif
+
         </div>
     </div>
 
     {{-- SEARCH & FILTER --}}
     <form method="GET" action="{{ route('participants.index') }}"
           class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-        @if ($arsip) <input type="hidden" name="arsip" value="1"> @endif
 
         <input type="text" name="q" value="{{ $filters['q'] ?? '' }}"
                placeholder="Cari nama peserta / nama usaha / nomor HP..."
@@ -98,7 +85,7 @@
                     class="bg-cahaya-secondary text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-cahaya-secondary/90 transition">
                 Cari / Filter
             </button>
-            <a href="{{ route('participants.index', $arsip ? ['arsip' => 1] : []) }}"
+            <a href="{{ route('participants.index') }}"
                class="text-sm text-gray-500 px-4 py-2 hover:text-gray-700">
                 Reset
             </a>
@@ -115,13 +102,9 @@
                     <th class="px-4 py-3">Nama Usaha</th>
                     <th class="px-4 py-3">Jenis Usaha</th>
                     <th class="px-4 py-3">Pendamping</th>
-                    @if ($arsip)
-                        <th class="px-4 py-3">Dihapus</th>
-                        <th class="px-4 py-3">Oleh</th>
-                    @else
                         <th class="px-4 py-3">Tanggal Mulai</th>
                         <th class="px-4 py-3">Status</th>
-                    @endif
+
                     <th class="px-4 py-3">Aksi</th>
                 </tr>
             </thead>
@@ -131,17 +114,13 @@
                         <td class="px-4 py-3">{{ $participants->firstItem() + $index }}</td>
                         <td class="px-4 py-3">
                             {{ $participant->nama_peserta }}
-                            @if (! $arsip && $participant->koperasiMember)
+                            @if ($participant->koperasiMember)
                                 <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-cahaya-secondary/20 text-cahaya-primary">Koperasi</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">{{ $participant->nama_usaha }}</td>
                         <td class="px-4 py-3">{{ $participant->kategori_usaha }}</td>
                         <td class="px-4 py-3">{{ $participant->pendamping->nama ?? '—' }}</td>
-                        @if ($arsip)
-                            <td class="px-4 py-3">{{ $participant->deleted_at?->format('d-m-Y H:i') }}</td>
-                            <td class="px-4 py-3 text-gray-500">{{ $participant->namaPenghapus() }}</td>
-                        @else
                             <td class="px-4 py-3">{{ $participant->tanggal_mulai_program->format('d-m-Y') }}</td>
                             <td class="px-4 py-3">
                                 <span class="inline-block px-2 py-1 rounded text-xs font-medium
@@ -151,30 +130,23 @@
                                     {{ $participant->status }}
                                 </span>
                             </td>
-                        @endif
+
                         <td class="px-4 py-3 space-x-2 whitespace-nowrap">
-                            @if ($arsip)
-                                <form method="POST" action="{{ route('participants.restore', $participant->id) }}" class="inline"
-                                      onsubmit="return confirm('Pulihkan peserta ini beserta seluruh riwayatnya?');">
-                                    @csrf
-                                    <button type="submit" class="text-green-700 hover:underline">Pulihkan</button>
-                                </form>
-                            @else
                                 <a href="{{ route('participants.show', $participant) }}" class="text-cahaya-secondary hover:underline">Lihat</a>
                                 <a href="{{ route('participants.edit', $participant) }}" class="text-cahaya-primary hover:underline">Edit</a>
                                 <form method="POST" action="{{ route('participants.destroy', $participant) }}" class="inline"
-                                      onsubmit="return confirm('Arsipkan data peserta ini?\n\nData akan dipindahkan ke Arsip Data dan masih dapat dipulihkan oleh Admin.');">
+                                      onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:underline">Arsipkan</button>
+                                    <button type="submit" class="text-red-600 hover:underline">Hapus Permanen</button>
                                 </form>
-                            @endif
+
                         </td>
                     </tr>
                 @empty
                     <tr>
                         <td colspan="8" class="px-4 py-6 text-center text-gray-400 italic">
-                            {{ $arsip ? 'Tidak ada peserta di arsip.' : 'Belum ada data peserta yang cocok dengan filter.' }}
+                            Belum ada data peserta yang cocok dengan filter.
                         </td>
                     </tr>
                 @endforelse

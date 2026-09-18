@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -26,11 +27,8 @@ class CustomerController extends Controller
     {
         Gate::authorize('viewAny', Customer::class);
 
-        $arsip = $request->boolean('arsip');
-
         $customers = Customer::withCount('salesTransactions')
             ->with('penghapus')
-            ->when($arsip, fn ($q) => $q->onlyTrashed())
             ->when($request->filled('q'), function ($q) use ($request) {
                 $keyword = $request->string('q');
                 $q->where(function ($sub) use ($keyword) {
@@ -44,8 +42,6 @@ class CustomerController extends Controller
 
         return view('koperasi.pelanggan.index', [
             'customers' => $customers,
-            'arsip' => $arsip,
-            'jumlahTerhapus' => Customer::onlyTrashed()->count(),
             'filters' => $request->only(['q']),
         ]);
     }
@@ -97,23 +93,20 @@ class CustomerController extends Controller
     {
         Gate::authorize('delete', $pelanggan);
 
-        $pelanggan->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($pelanggan);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($pelanggan);
 
         return redirect()
             ->route('koperasi.pelanggan.index')
-            ->with('success', 'Pelanggan ' . $pelanggan->nama . ' dipindahkan ke arsip. Riwayat penjualannya tetap tersimpan.');
-    }
-
-    /** Membatalkan Soft Delete. Route-nya memakai withTrashed(). */
-    public function restore(Customer $pelanggan)
-    {
-        Gate::authorize('restore', $pelanggan);
-
-        $pelanggan->restore();
-
-        return redirect()
-            ->route('koperasi.pelanggan.index')
-            ->with('success', 'Pelanggan ' . $pelanggan->nama . ' berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     /**

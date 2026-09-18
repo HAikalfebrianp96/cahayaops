@@ -56,10 +56,10 @@
                                      sini adalah membuang perhitungan yang salah input —
                                      tetap tanpa menghilangkan barisnya. --}}
                                 <form method="POST" action="{{ route('hpp.destroy', $c) }}" class="inline"
-                                      onsubmit="return confirm('Arsipkan perhitungan HPP ini?\n\nData akan dipindahkan ke Arsip Data dan masih dapat dipulihkan Admin.');">
+                                      onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="text-status-danger hover:underline text-xs">Arsipkan</button>
+                                    <button type="submit" class="text-status-danger hover:underline text-xs">Hapus Permanen</button>
                                 </form>
                             </td>
                         </tr>

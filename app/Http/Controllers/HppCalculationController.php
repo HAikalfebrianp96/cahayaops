@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PenghapusanPermanenService;
 use App\Models\ActivityLog;
 use App\Models\HppCalculation;
 use App\Models\HppComponent;
@@ -245,29 +246,20 @@ class HppCalculationController extends Controller
         );
 
         $participantId = $hppCalculation->participant_id;
-        $hppCalculation->delete();
+        $penghapusan = app(PenghapusanPermanenService::class);
+        $alasan = $penghapusan->alasanTertahan($hppCalculation);
+
+        if ($alasan !== null) {
+            // Bukan kegagalan sistem: ini keputusan yang disengaja, jadi
+            // disampaikan sebagai penjelasan beserta apa yang menahannya.
+            return back()->with('error', $alasan);
+        }
+
+        $ringkasan = $penghapusan->hapusDenganCatatan($hppCalculation);
 
         return redirect()
             ->route('hpp.index', $participantId)
-            ->with('success', 'Perhitungan HPP dihapus. Datanya tetap tersimpan dan bisa dipulihkan Admin.');
-    }
-
-    /**
-     * Memulihkan perhitungan HPP dari Arsip. Route-nya memakai withTrashed().
-     *
-     * Otorisasinya memakai pesertaTermasukArsip() supaya Pendamping pemilik
-     * binaan tetap dikenali walau pesertanya ikut diarsipkan.
-     */
-    public function restore(HppCalculation $hppCalculation)
-    {
-        abort_unless(
-            Auth::user()->canManageParticipantRecord($hppCalculation->pesertaTermasukArsip()),
-            403
-        );
-
-        $hppCalculation->restore();
-
-        return back()->with('success', 'Perhitungan HPP berhasil dipulihkan.');
+            ->with('success', 'Dihapus permanen: ' . $ringkasan . '. Data ini tidak dapat dipulihkan.');
     }
 
     public function show(HppCalculation $hppCalculation)

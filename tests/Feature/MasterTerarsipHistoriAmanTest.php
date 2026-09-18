@@ -274,22 +274,6 @@ class MasterTerarsipHistoriAmanTest extends TestCase
     // E — PEMULIHAN mengembalikan keadaan
     // ==================================================================
 
-    public function test_memulihkan_master_mengembalikannya_ke_operasional(): void
-    {
-        $this->produk->delete();
-
-        $this->actingAs($this->admin)
-            ->get(route('koperasi.penjualan.create', ['unit' => $this->unit->id]))
-            ->assertOk()->assertDontSee('Beras Lima Kilo');
-
-        $this->actingAs($this->admin)->post(route('koperasi.produk.restore', $this->produk->id))
-            ->assertRedirect();
-
-        $this->actingAs($this->admin)
-            ->get(route('koperasi.penjualan.create', ['unit' => $this->unit->id]))
-            ->assertOk()->assertSee('Beras Lima Kilo');
-    }
-
     // ==================================================================
     // F & G & H — LAPORAN, PDF, EXCEL
     // ==================================================================

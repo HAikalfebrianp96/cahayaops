@@ -151,10 +151,8 @@ class OtorisasiRouteBaruTest extends TestCase
                 'nama' => 'X', 'kode' => 'X', 'tipe' => 'Jasa', 'status' => 'Aktif',
             ]],
             'Hapus unit usaha' => ['delete', route('koperasi.unit-usaha.destroy', $this->unit), []],
-            'Pulihkan unit usaha' => ['post', route('koperasi.unit-usaha.restore', $this->unit->id), []],
             'Pilih peserta jadi anggota' => ['get', route('koperasi.anggota.pilih-peserta'), []],
             'Hapus anggota' => ['delete', route('koperasi.anggota.destroy', $this->anggota), []],
-            'Pulihkan anggota' => ['post', route('koperasi.anggota.restore', $this->anggota->id), []],
             'Edit simpanan' => ['get', route('koperasi.savings.edit', $this->simpanan), []],
             'Update simpanan' => ['put', route('koperasi.savings.update', $this->simpanan), [
                 'jenis_simpanan' => 'Simpanan Pokok', 'tanggal' => '2026-01-01', 'nominal' => 1,
@@ -257,10 +255,10 @@ class OtorisasiRouteBaruTest extends TestCase
     {
         foreach ([
             route('koperasi.unit-usaha.index'),
-            route('koperasi.unit-usaha.index', ['arsip' => 1]),
+            route('koperasi.unit-usaha.index'),
             route('koperasi.unit-usaha.edit', $this->unit),
             route('koperasi.anggota.pilih-peserta'),
-            route('koperasi.anggota.index', ['arsip' => 1]),
+            route('koperasi.anggota.index'),
             route('koperasi.savings.edit', $this->simpanan),
         ] as $url) {
             $this->actingAs($this->timKoperasi)->get($url)->assertOk("Tim Koperasi seharusnya boleh: $url");
@@ -282,13 +280,13 @@ class OtorisasiRouteBaruTest extends TestCase
     public function test_admin_diterima_di_seluruh_route_baru(): void
     {
         foreach ([
-            route('participants.index', ['arsip' => 1]),
+            route('participants.index'),
             route('participants.edit', $this->binaanB),
             route('training.edit', $this->pelatihanB),
             route('omzet.create', $this->binaanB),
             route('omzet.edit', $this->omzetB),
             route('koperasi.unit-usaha.edit', $this->unit),
-            route('koperasi.unit-usaha.index', ['arsip' => 1]),
+            route('koperasi.unit-usaha.index'),
             route('koperasi.anggota.pilih-peserta'),
             route('koperasi.savings.edit', $this->simpanan),
         ] as $url) {

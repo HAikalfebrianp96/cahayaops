@@ -47,7 +47,6 @@ class RelasiAkunPendampingTest extends TestCase
             'prioritas.index',
             'kpi-pendamping.index',
             'laporan',
-            'arsip.index',
         ] as $halaman) {
             $this->actingAs($menggantung)
                 ->get(route($halaman))

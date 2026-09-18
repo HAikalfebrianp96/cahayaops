@@ -141,9 +141,9 @@
                                     <a href="{{ route('manajemen-user.edit', $u) }}" class="text-status-info hover:underline text-xs font-medium">Edit</a>
                                     <span class="text-border-soft mx-1">|</span>
 
-                                    {{-- SIKLUS AKUN — satu-satunya jalan mencabut dan
-                                         mengembalikan akses. Tidak ada tombol hapus:
-                                         akun tidak pernah dibuang, hanya dinonaktifkan.
+                                    {{-- SIKLUS AKUN — jalan utama untuk mencabut dan
+                                         mengembalikan akses. Ini BUKAN pengarsipan data;
+                                         akun punya siklus hidupnya sendiri.
 
                                          Kalimat konfirmasinya menyebut apa yang TETAP ada
                                          (data, histori, kemungkinan dipulihkan), supaya Admin
@@ -170,6 +170,23 @@
                                               onsubmit="return confirm({{ Js::from('Buat password sementara baru untuk akun ini? Password lama langsung tidak berlaku.') }});">
                                             @csrf
                                             <button type="submit" class="text-xs font-medium text-text-secondary hover:text-text-main hover:underline">Reset Password</button>
+                                        </form>
+                                    @endif
+
+                                    {{-- HAPUS PERMANEN — hanya ditawarkan untuk akun ORANG LAIN.
+                                         Penjaga sebenarnya ada di UserAccountGuard (akun sendiri,
+                                         Admin terakhir, dan akun yang sudah punya jejak ditolak
+                                         beserta alasannya); menyembunyikan tombol di akun sendiri
+                                         semata agar Admin tidak menekan sesuatu yang pasti gagal. --}}
+                                    @if ($u->id !== auth()->id())
+                                        <span class="text-border-soft mx-1">|</span>
+                                        <form method="POST" action="{{ route('manajemen-user.destroy', $u) }}" class="inline"
+                                              onsubmit="return confirm({{ Js::from('Hapus Permanen?
+
+Data yang dihapus tidak dapat dipulihkan. Pastikan akun ini memang sudah tidak diperlukan.') }});">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-xs font-medium text-status-danger hover:underline">Hapus Permanen</button>
                                         </form>
                                     @endif
 

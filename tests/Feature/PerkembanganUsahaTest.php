@@ -290,17 +290,6 @@ class PerkembanganUsahaTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_menghapus_lalu_memulihkan_dari_arsip(): void
-    {
-        $m = $this->ukur($this->binaanA, ParticipantMeasurement::BASELINE, ['omzet_bulanan' => 1_000_000]);
-
-        $this->actingAs($this->admin)->delete(route('perkembangan.destroy', $m))->assertRedirect();
-        $this->assertSoftDeleted('participant_measurements', ['id' => $m->id]);
-
-        $this->actingAs($this->admin)->post(route('perkembangan.restore', $m->id))->assertRedirect();
-        $this->assertDatabaseHas('participant_measurements', ['id' => $m->id, 'deleted_at' => null]);
-    }
-
     public function test_pengukuran_terhapus_tidak_ikut_dibandingkan(): void
     {
         $baseline = $this->ukur($this->binaanA, ParticipantMeasurement::BASELINE, ['omzet_bulanan' => 1_000_000]);

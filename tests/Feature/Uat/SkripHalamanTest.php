@@ -118,7 +118,6 @@ class SkripHalamanTest extends TestCase
             route('target-pendamping.create'),
             route('impact.index'),
             route('impact.proxy.index'),
-            route('arsip.index'),
             route('laporan'),
             route('pengaturan.index'),
         ];
