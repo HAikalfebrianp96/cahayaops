@@ -123,6 +123,24 @@ Transaksi akan kembali dihitung di laba rugi dan laporan penjualan.');">
                                                     @csrf
                                                     <button type="submit" class="text-cahaya-primary hover:underline text-xs font-medium">Pulihkan</button>
                                                 </form>
+
+                                                {{-- HAPUS PERMANEN hanya ditawarkan pada transaksi yang
+                                                     SUDAH dibatalkan.
+
+                                                     Bukan karena tombolnya disembunyikan, melainkan karena
+                                                     server memang menolaknya: pembatalan mewajibkan ALASAN,
+                                                     dan alasan itulah satu-satunya keterangan yang tersisa
+                                                     tentang uang yang hilang dari laporan. Menawarkan tombol
+                                                     yang pasti ditolak hanya membuat petugas mengira
+                                                     sistemnya rusak. --}}
+                                                <form method="POST" action="{{ route('koperasi.penjualan.destroy', $t) }}"
+                                                      onsubmit="return confirm('Hapus Permanen?
+
+Transaksi {{ $t->nomor_transaksi }} beserta seluruh item dan invoice-nya akan dihapus dan tidak dapat dipulihkan. Pastikan transaksi ini memang ingin dihapus.');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-status-danger hover:underline text-xs font-medium">Hapus Permanen</button>
+                                                </form>
                                             @else
                                                 <a href="{{ route('koperasi.penjualan.edit', $t) }}" class="text-cahaya-primary hover:underline text-xs font-medium">Edit</a>
                                                 <a href="{{ route('koperasi.penjualan.show', $t) }}" class="text-status-danger hover:underline text-xs font-medium">Batalkan</a>

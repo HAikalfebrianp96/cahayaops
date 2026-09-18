@@ -17,9 +17,17 @@ use Tests\TestCase;
 /**
  * PEMBATALAN BERJEJAK untuk transaksi keuangan koperasi.
  *
- * Penjualan dan arus Dana Sosial/Hibah adalah UANG. Keduanya SENGAJA tidak
- * punya jalur hapus sama sekali — laporan laba rugi, buku dana, dan invoice
- * yang sudah terbit akan ikut berubah tanpa jejak.
+ * Penjualan dan arus Dana Sosial/Hibah adalah UANG: laporan laba rugi, buku
+ * dana, dan invoice yang sudah terbit akan ikut berubah tanpa jejak kalau
+ * barisnya hilang begitu saja.
+ *
+ * Dana Sosial/Hibah karena itu SENGAJA tidak punya jalur hapus sama sekali.
+ *
+ * Penjualan punya hapus permanen, TAPI hanya setelah dibatalkan. Urutan itu
+ * yang menjadi pengamannya: selama barisnya masih aktif ia sedang dihitung
+ * di laba rugi, dan pembatalan mewajibkan alasan yang tercatat. Perilaku
+ * hapusnya diuji di HapusPenjualanDanKategoriTest; berkas ini menjaga
+ * batas antara keduanya.
  *
  * Yang tersedia adalah pembatalan: barisnya TETAP ADA, statusnya jadi
  * "Dibatalkan", berhenti dihitung ke laporan, dan alasan + pelakunya
@@ -175,13 +183,31 @@ class PembatalanTransaksiTest extends TestCase
         $this->assertSame('Aktif', $transaksi->fresh()->status_transaksi);
     }
 
-    /** TIDAK ADA jalur hapus untuk penjualan — dan itu disengaja. */
-    public function test_tidak_ada_route_hapus_penjualan(): void
+    /**
+     * Jalur hapus penjualan KINI ADA — tetapi tetap di belakang Batalkan.
+     *
+     * Test ini dulu berbunyi assertFalse(Route::has(...)) dengan alasan
+     * "transaksi penjualan tidak boleh punya jalur hapus". Kebijakan itu
+     * diubah: Hapus Permanen sekarang tersedia.
+     *
+     * Yang TIDAK berubah adalah alasan di balik aturan lamanya, dan itulah
+     * yang dijaga di sini: transaksi yang masih aktif tetap tidak bisa
+     * dihapus. Batalkan mewajibkan ALASAN, dan alasan itu tercatat di
+     * Activity Log — tanpa langkah itu, satu-satunya keterangan tentang
+     * uang yang hilang dari laba rugi adalah kata "dihapus".
+     */
+    public function test_hapus_penjualan_hanya_setelah_dibatalkan(): void
     {
-        $this->assertFalse(
-            Route::has('koperasi.penjualan.destroy'),
-            'Transaksi penjualan tidak boleh punya jalur hapus — koreksinya lewat Batalkan.',
-        );
+        $this->assertTrue(Route::has('koperasi.penjualan.destroy'));
+
+        $transaksi = $this->transaksi();
+
+        $this->actingAs($this->timKoperasi)
+            ->delete(route('koperasi.penjualan.destroy', $transaksi))
+            ->assertSessionHasErrors('hapus');
+
+        $this->assertDatabaseHas('sales_transactions', ['id' => $transaksi->id]);
+        $this->assertSame('Aktif', $transaksi->fresh()->status_transaksi);
     }
 
     // =====================================================================

@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\ProductService;
 use App\Models\SalesTransaction;
+use App\Services\PenghapusanPermanenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -586,6 +587,67 @@ class SalesTransactionController extends Controller
     }
 
     /** Membuat/mengubah transaksi - Admin & Tim Koperasi. */
+    /**
+     * HAPUS PERMANEN satu transaksi penjualan.
+     *
+     * =====================================================================
+     * HARUS DIBATALKAN DULU — DAN ITU BUKAN LANGKAH BIROKRATIS
+     * =====================================================================
+     *
+     * Penjaganya (PenghapusanPermanenService) menolak transaksi yang masih
+     * aktif, dengan alasan yang ditampilkan apa adanya ke petugas.
+     *
+     * Urutan itu disengaja: Batalkan menuntut ALASAN, dan alasan itu tercatat
+     * di Activity Log. Kalau transaksi aktif boleh langsung dihapus, satu-
+     * satunya keterangan yang tersisa tentang uang yang hilang dari laporan
+     * adalah "dihapus" — tanpa siapa pun tahu kenapa.
+     *
+     * =====================================================================
+     * ITEM DAN INVOICE IKUT TERHAPUS — DALAM SATU TRANSAKSI DATABASE
+     * =====================================================================
+     *
+     * sales_transaction_items dan invoices ber-ON DELETE CASCADE ke
+     * transaksi ini. Keduanya memang bagian dari transaksi yang sama, bukan
+     * data berdiri sendiri — invoice tanpa transaksinya tidak berarti apa
+     * pun. Dibungkus DB::transaction supaya tidak mungkin tersisa separuh:
+     * baris induk hilang sementara item-itemnya tertinggal sebagai yatim.
+     */
+    public function destroy(SalesTransaction $transaksi, PenghapusanPermanenService $penghapusan)
+    {
+        $this->authorizeManage();
+
+        $alasan = $penghapusan->alasanTertahan($transaksi);
+
+        if ($alasan !== null) {
+            return back()->withErrors(['hapus' => $alasan]);
+        }
+
+        // Diambil SEBELUM dihapus; sesudahnya tidak ada yang tersisa untuk
+        // dirujuk. Hanya nomor, tanggal, dan total — tidak ada data rahasia.
+        $nomor = $transaksi->nomor_transaksi;
+        $id = $transaksi->id;
+        $jumlahItem = $transaksi->items()->count();
+        $punyaInvoice = $transaksi->invoice()->exists();
+
+        DB::transaction(function () use ($transaksi, $penghapusan) {
+            $penghapusan->hapus($transaksi);
+        });
+
+        ActivityLog::record(
+            action: 'sale_permanently_deleted',
+            modelType: 'SalesTransaction',
+            modelId: $id,
+            description: 'TRANSAKSI DIHAPUS PERMANEN: ' . $nomor
+                . ' (' . $jumlahItem . ' item'
+                . ($punyaInvoice ? ', beserta invoice-nya' : '')
+                . '). Tindakan ini tidak dapat dibatalkan.',
+        );
+
+        return redirect()
+            ->route('koperasi.penjualan.index')
+            ->with('success', 'Transaksi ' . $nomor . ' dihapus permanen beserta seluruh itemnya.');
+    }
+
     private function authorizeManage(): void
     {
         abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);

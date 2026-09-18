@@ -18,7 +18,23 @@
     </div>
 
     <div>
-        <label class="block text-sm font-medium text-text-main mb-1">Kategori Pengeluaran</label>
+        {{-- Tautan "+ Tambah Kategori" dibuka di tab baru.
+             Kategori pengeluaran memang sudah dinamis — daftarnya datang dari
+             tabel master, bukan dari daftar tetap di kode. Yang kurang selama
+             ini cuma jalannya: petugas yang butuh kategori baru di tengah
+             pengisian form harus mencarinya sendiri lewat menu, dan isian
+             yang sudah diketik hilang begitu ia berpindah halaman.
+
+             Izinnya SAMA dengan halaman kategorinya sendiri
+             (bolehKelolaKoperasi) — tautan ini tidak membuka pintu baru,
+             hanya memperpendek jalan yang memang sudah terbuka. --}}
+        <div class="flex items-baseline justify-between mb-1">
+            <label class="block text-sm font-medium text-text-main">Kategori Pengeluaran</label>
+            @if (auth()->user()?->bolehKelolaKoperasi())
+                <a href="{{ route('koperasi.kategori-pengeluaran.index') }}" target="_blank" rel="noopener"
+                   class="text-xs font-medium text-status-info hover:underline">+ Tambah Kategori</a>
+            @endif
+        </div>
         <select name="pengeluaran_category_id" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
             <option value="">— Pilih Kategori —</option>
             @foreach ($kategoriOptions as $k)

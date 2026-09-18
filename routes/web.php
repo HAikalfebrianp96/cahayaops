@@ -352,6 +352,10 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         // yang tidak pernah terjadi ke dalam laporan.
         Route::post('/penjualan/{transaksi}/pulihkan', [SalesTransactionController::class, 'pulihkan'])->name('penjualan.pulihkan');
 
+        // Hapus permanen. Penjaganya menolak transaksi yang masih aktif —
+        // harus dibatalkan (beserta alasannya) lebih dulu, supaya uang yang
+        // hilang dari laporan selalu punya keterangan kenapa.
+        Route::delete('/penjualan/{transaksi}', [SalesTransactionController::class, 'destroy'])->name('penjualan.destroy');
         Route::get('/penjualan/{transaksi}/invoice', [InvoiceController::class, 'show'])->name('invoice.show');
         Route::post('/penjualan/{transaksi}/invoice', [InvoiceController::class, 'store'])->name('invoice.store');
         Route::get('/penjualan/{transaksi}/invoice/pdf', [InvoiceController::class, 'pdf'])->name('invoice.pdf');
