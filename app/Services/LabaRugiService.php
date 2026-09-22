@@ -47,6 +47,11 @@ class LabaRugiService
                 continue; // unit sudah dihapus/tidak dikenal, lewati aman
             }
 
+            // Piutang dari transaksi yang SAMA dengan Penjualan & HPP di bawah
+            // — sisa tagihan (total - dibayar) yang belum lunas. Hanya
+            // informasi: tidak ikut rumus laba.
+            $perUnit[$trx->unit_id]['piutang'] += $trx->sisaPembayaran();
+
             foreach ($trx->items as $item) {
                 // SETIAP item masuk Penjualan dan HPP — tidak ada lagi item
                 // yang dikecualikan karena "jenis"-nya.
@@ -106,10 +111,10 @@ class LabaRugiService
         // Total keseluruhan koperasi
         $total = [
             'penjualan' => 0, 'hpp' => 0, 'laba_kotor' => 0, 'fee_koperasi' => 0,
-            'hak_mitra' => 0, 'pengeluaran' => 0, 'kontribusi_usaha' => 0,
+            'hak_mitra' => 0, 'pengeluaran' => 0, 'kontribusi_usaha' => 0, 'piutang' => 0,
         ];
         foreach ($perUnit as $u) {
-            foreach (['penjualan', 'hpp', 'laba_kotor', 'fee_koperasi', 'hak_mitra', 'pengeluaran', 'kontribusi_usaha'] as $key) {
+            foreach (['penjualan', 'hpp', 'laba_kotor', 'fee_koperasi', 'hak_mitra', 'pengeluaran', 'kontribusi_usaha', 'piutang'] as $key) {
                 $total[$key] += $u[$key];
             }
         }
@@ -139,7 +144,7 @@ class LabaRugiService
         return [
             'nama' => $nama,
             'penjualan' => 0.0, 'hpp' => 0.0, 'laba_kotor' => 0.0,
-            'fee_koperasi' => 0.0, 'hak_mitra' => 0.0, 'pengeluaran' => 0.0,
+            'fee_koperasi' => 0.0, 'hak_mitra' => 0.0, 'pengeluaran' => 0.0, 'piutang' => 0.0,
         ];
     }
 

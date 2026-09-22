@@ -133,8 +133,10 @@ class DashboardSwitcherTest extends TestCase
         $response->assertDontSee('Koperasi Cahaya — Periode:');
         $response->assertSee('Ringkasan Laba-Rugi');
         $response->assertSee('Periode: Tahun ' . now()->year . ', semua bulan');
-        // Angka-angka yang dulu cuma ada di halaman koperasi.dashboard.
-        $response->assertSee('Fee Titip Jual');
+        // Enam KPI utama. Fee Titip Jual & Hak Mitra sengaja BUKAN KPI lagi
+        // (hak mitra dihitung koperasi di luar sistem).
+        $response->assertSeeInOrder(['Total Penjualan', 'HPP Terjual', 'Laba Kotor', 'Pengeluaran', 'Piutang Aktif', 'Laba Bersih']);
+        $response->assertDontSee('Fee Titip Jual');
         $response->assertSee('Performa Unit Usaha');
         $response->assertSee('Simpanan Anggota');
         // Isi khas panel Cahaya Preneur TIDAK ikut ter-render.
@@ -271,7 +273,11 @@ class DashboardSwitcherTest extends TestCase
                 $this->assertStringNotContainsString($tombol, $main, "Tombol aksi '{$tombol}' masih ada di Dashboard");
             }
 
-            // Tidak ada <button> maupun <form> di area konten Dashboard.
+            // Filter periode panel Koperasi (form GET, hanya membaca) bukan
+            // tombol aksi. Selain form itu, tidak boleh ada <button> maupun
+            // <form> di area konten Dashboard.
+            $this->assertStringNotContainsString('method="POST"', $main);
+            $main = preg_replace('#<form method="GET".*?</form>#s', '', $main);
             $this->assertStringNotContainsString('<button', $main);
             $this->assertStringNotContainsString('<form', $main);
         }

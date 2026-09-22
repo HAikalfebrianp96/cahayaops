@@ -121,7 +121,7 @@ class DashboardController extends Controller
         if ($modul === 'koperasi') {
             return view('dashboard', array_merge(
                 ['modul' => $modul, 'isAdmin' => $isAdmin],
-                $this->koperasiData()
+                $this->koperasiData($request)
             ));
         }
 
@@ -881,12 +881,19 @@ class DashboardController extends Controller
      * DATA PANEL KOPERASI CAHAYA — DIPINDAHKAN apa adanya dari
      * KoperasiDashboardController@index (bukan disalin: controller itu
      * sekarang tinggal redirect ke sini). Tidak ada rumus/definisi yang
-     * diubah — termasuk pemakaian LabaRugiService::hitung('default',
-     * 'default', null) yang tetap jadi SATU sumber perhitungan bersama
-     * halaman Keuangan & Laporan.
+     * diubah — LabaRugiService::hitung() tetap jadi SATU sumber perhitungan
+     * bersama halaman Keuangan & Laporan.
+     *
+     * Filter Tahun/Bulan/Unit memakai nilai & arti yang SAMA dengan halaman
+     * Keuangan (LabaRugiController), dan keenam KPI membaca satu hasil
+     * hitung() yang sama — tidak ada kartu yang memakai dataset lain.
      */
-    private function koperasiData(): array
+    private function koperasiData(Request $request): array
     {
+        $tahun = (string) $request->input('tahun', 'default');
+        $bulan = (string) $request->input('bulan', 'default');
+        $unitId = $request->input('unit_id') ?: null;
+
         $stats = [
             'total_anggota' => KoperasiMember::count(),
             'anggota_aktif' => KoperasiMember::where('status', 'Aktif')->count(),
@@ -916,24 +923,28 @@ class DashboardController extends Controller
         $stats['saldo_dana_sukarela'] = (float) DanaSukarelaMasuk::berlaku()->sum('nominal') - (float) DanaSukarelaKeluar::berlaku()->sum('nominal');
         $stats['saldo_dana_hibah'] = (float) DanaHibahMasuk::berlaku()->sum('nominal') - (float) DanaHibahKeluar::berlaku()->sum('nominal');
 
-        // Laba Bersih & Unit Terbaik — SATU SUMBER PERHITUNGAN sama dengan halaman Keuangan.
-        // Default: Tahun Berjalan + Semua Bulan (belum ada filter periode di panel ini).
-        $lr = $this->labaRugiService->hitung('default', 'default', null);
-        $stats['laba_bersih_tahun_ini'] = $lr['total']['laba_bersih'];
-        $stats['unit_terbaik'] = $lr['unit_terbaik'];
-        $stats['ada_transaksi_tahun_ini'] = $lr['ada_transaksi'];
-
-        // ==========================================================
-        // TAMBAHAN — SEMUA field ini SUDAH ADA di hasil $lr (tidak ada
-        // rumus baru dibuat), sebelumnya cuma tidak pernah ditampilkan.
-        // ==========================================================
+        // ENAM KPI — semuanya dari SATU hasil LabaRugiService, sama dengan
+        // halaman Keuangan. Default: Tahun Berjalan + Semua Bulan + Semua Unit.
+        //
+        // Nama kunci *_tahun_ini dipertahankan (dibaca test & view); dengan
+        // filter terpasang isinya mengikuti periode yang dipilih.
+        //
+        // Hak Mitra dan Fee Koperasi SENGAJA tidak dijadikan KPI: hak mitra
+        // dihitung koperasi di luar sistem, dan fee hanya ada pada transaksi
+        // lama. Keduanya tetap tersimpan dan tetap ada di Keuangan/Laporan.
+        $lr = $this->labaRugiService->hitung($tahun, $bulan, $unitId);
         $stats['penjualan_tahun_ini'] = $lr['total']['penjualan'];
         $stats['hpp_tahun_ini'] = $lr['total']['hpp'];
         $stats['laba_kotor_tahun_ini'] = $lr['total']['laba_kotor'];
-        $stats['fee_koperasi_tahun_ini'] = $lr['total']['fee_koperasi'];
-        $stats['hak_mitra_tahun_ini'] = $lr['total']['hak_mitra'];
         $stats['pengeluaran_tahun_ini'] = $lr['total']['pengeluaran_total'];
+        $stats['piutang_aktif'] = $lr['total']['piutang'];
+        $stats['laba_bersih_tahun_ini'] = $lr['total']['laba_bersih'];
+        $stats['unit_terbaik'] = $lr['unit_terbaik'];
+        $stats['ada_transaksi_tahun_ini'] = $lr['ada_transaksi'];
         $perUnit = collect($lr['per_unit'])->sortByDesc('laba_bersih')->values();
+
+        $filters = ['tahun' => $tahun, 'bulan' => $bulan, 'unit_id' => $unitId];
+        $units = BusinessUnit::orderBy('nama')->get();
 
         // Status Pembayaran — hitungan sederhana dari kolom yang sudah ada.
         $statusPembayaran = [
@@ -955,7 +966,7 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return compact('stats', 'perUnit', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru');
+        return compact('stats', 'perUnit', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units');
     }
 
     /**

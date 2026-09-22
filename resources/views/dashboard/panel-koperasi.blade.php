@@ -1,25 +1,62 @@
 {{-- PANEL: KOPERASI CAHAYA — dipindahkan apa adanya dari koperasi/dashboard.blade.php.
      Di-include oleh dashboard.blade.php saat modul aktif = 'koperasi'. --}}
-    {{-- KETERANGAN PERIODE — dipindahkan dari subtitle header halaman.
-         SENGAJA ditaruh di sini, menempel pada angka yang memang dibatasi
-         periode ini (semuanya berasal dari LabaRugiService::hitung('default',
-         'default') = tahun berjalan, semua bulan) — BUKAN di puncak panel.
-         Alasannya: kartu Simpanan Anggota, Dana Sosial & Hibah, dan Status
-         Pembayaran di bawah dihitung SEPANJANG WAKTU, jadi satu label periode
-         di puncak panel justru akan menyesatkan. --}}
+    {{-- KETERANGAN PERIODE — menempel pada angka yang memang dibatasi
+         periode ini (enam KPI dan Performa Unit Usaha), BUKAN di puncak
+         panel: kartu Simpanan Anggota, Dana Sosial & Hibah, dan Status
+         Pembayaran di bawah dihitung SEPANJANG WAKTU. --}}
+    @php
+        $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        $labelTahun = $filters['tahun'] === 'default' ? 'Tahun ' . now()->year : ($filters['tahun'] === 'semua' ? 'Semua tahun' : 'Tahun ' . $filters['tahun']);
+        $labelBulan = in_array($filters['bulan'], ['default', 'semua'], true) ? 'semua bulan' : $namaBulan[(int) $filters['bulan']];
+        $labelUnit = $filters['unit_id'] === 'operasional'
+            ? ', Operasional Koperasi'
+            : ($filters['unit_id'] ? ', ' . ($units->firstWhere('id', (int) $filters['unit_id'])->nama ?? 'unit tidak dikenal') : '');
+        $labelPeriode = $labelTahun . ', ' . $labelBulan . $labelUnit;
+    @endphp
     <div class="flex items-baseline justify-between flex-wrap gap-x-3 gap-y-1">
         <h3 class="text-[15px] font-semibold text-text-main">Ringkasan Laba-Rugi</h3>
-        <p class="text-xs text-text-secondary">Periode: Tahun {{ now()->year }}, semua bulan</p>
+        <p class="text-xs text-text-secondary">Periode: {{ $labelPeriode }}</p>
     </div>
 
-    {{-- 4-5. KPI UTAMA (Penjualan, HPP, Laba Kotor, Fee Titip Jual, Pengeluaran, Laba Bersih) --}}
+    {{-- FILTER — nilai & artinya sama dengan halaman Keuangan, dan SATU
+         filter ini berlaku untuk keenam KPI sekaligus. --}}
+    <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap gap-3">
+        <input type="hidden" name="modul" value="koperasi">
+        <select name="tahun" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
+            <option value="default" {{ $filters['tahun'] === 'default' ? 'selected' : '' }}>Tahun Ini</option>
+            <option value="semua" {{ $filters['tahun'] === 'semua' ? 'selected' : '' }}>Semua Tahun</option>
+            @for ($y = now()->year; $y >= now()->year - 3; $y--)
+                <option value="{{ $y }}" {{ $filters['tahun'] == $y ? 'selected' : '' }}>{{ $y }}</option>
+            @endfor
+        </select>
+        <select name="bulan" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
+            <option value="default" {{ in_array($filters['bulan'], ['default', 'semua'], true) ? 'selected' : '' }}>Semua Bulan</option>
+            @foreach (array_slice($namaBulan, 1) as $i => $nm)
+                <option value="{{ $i + 1 }}" {{ $filters['bulan'] == ($i + 1) ? 'selected' : '' }}>{{ $nm }}</option>
+            @endforeach
+        </select>
+        <select name="unit_id" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
+            <option value="">Semua Unit</option>
+            <option value="operasional" {{ $filters['unit_id'] === 'operasional' ? 'selected' : '' }}>Operasional Koperasi</option>
+            @foreach ($units as $u)
+                <option value="{{ $u->id }}" {{ $filters['unit_id'] == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
+            @endforeach
+        </select>
+        <button type="submit" class="bg-status-info text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Filter</button>
+    </form>
+
+    {{-- ENAM KPI UTAMA — satu hasil LabaRugiService, sama dengan Keuangan:
+           Laba Kotor  = Total Penjualan - HPP Terjual
+           Laba Bersih = Laba Kotor - Pengeluaran
+         Piutang Aktif hanya informasi (sisa tagihan transaksi yang sama),
+         tidak ikut rumus laba. Hak Mitra & Fee sengaja bukan KPI. --}}
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
             <p class="text-xs font-medium text-text-secondary mb-2">Total Penjualan</p>
             <p class="text-xl font-bold text-text-main">{{ rupiah($stats['penjualan_tahun_ini']) }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
-            <p class="text-xs font-medium text-text-secondary mb-2">HPP</p>
+            <p class="text-xs font-medium text-text-secondary mb-2">HPP Terjual</p>
             <p class="text-xl font-bold text-text-main">{{ rupiah($stats['hpp_tahun_ini']) }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
@@ -27,14 +64,14 @@
             <p class="text-xl font-bold text-status-info">{{ rupiah($stats['laba_kotor_tahun_ini']) }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
-            <p class="text-xs font-medium text-text-secondary mb-2">Fee Titip Jual</p>
-            <p class="text-xl font-bold text-cahaya-accent">{{ rupiah($stats['fee_koperasi_tahun_ini']) }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
             <p class="text-xs font-medium text-text-secondary mb-2">Pengeluaran</p>
             <p class="text-xl font-bold text-status-danger">{{ rupiah($stats['pengeluaran_tahun_ini']) }}</p>
         </div>
-        {{-- LABA BERSIH — paling menonjol, sesuai instruksi --}}
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
+            <p class="text-xs font-medium text-text-secondary mb-2">Piutang Aktif</p>
+            <p class="text-xl font-bold text-cahaya-accent">{{ rupiah($stats['piutang_aktif']) }}</p>
+        </div>
+        {{-- LABA BERSIH — paling menonjol: hasil akhirnya --}}
         <div class="bg-cahaya-primary rounded-2xl shadow-sm p-5">
             <p class="text-xs font-medium text-white/70 mb-2">Laba Bersih</p>
             @if (! $stats['ada_transaksi_tahun_ini'])
@@ -52,7 +89,7 @@
         <div class="flex items-center justify-between mb-4">
             <div>
                 <h3 class="text-[15px] font-semibold text-text-main">Performa Unit Usaha</h3>
-                <p class="text-[11px] text-text-secondary mt-0.5">Tahun {{ now()->year }}, semua bulan</p>
+                <p class="text-[11px] text-text-secondary mt-0.5">{{ $labelPeriode }}</p>
             </div>
             @if ($stats['unit_terbaik'])
                 <span class="text-xs font-medium text-cahaya-accent bg-gold-light px-2.5 py-1 rounded-full">🏆 {{ $stats['unit_terbaik'] }}</span>
@@ -85,7 +122,7 @@
         @endif
     </div>
 
-    {{-- BARIS: PENJUALAN TERBARU + TITIP JUAL --}}
+    {{-- BARIS: PENJUALAN TERBARU + STATUS PEMBAYARAN --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {{-- 8. PENJUALAN TERBARU --}}
         <div class="lg:col-span-2 bg-white rounded-2xl border border-border-soft shadow-sm p-6">
@@ -128,17 +165,10 @@
             @endif
         </div>
 
-        {{-- 11. TITIP JUAL + 9. STATUS PEMBAYARAN --}}
+        {{-- 9. STATUS PEMBAYARAN. Kotak "Titip Jual" (Fee Koperasi & Hak
+             Mitra) dilepas: hak mitra dihitung koperasi di luar sistem, dan
+             angkanya tetap tersedia di Keuangan & Laporan. --}}
         <div class="space-y-5">
-            <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
-                <h3 class="text-[15px] font-semibold text-text-main mb-1">Titip Jual</h3>
-                <p class="text-[11px] text-text-secondary mb-4">Nilai penjualan penuh BUKAN pendapatan koperasi — cuma Fee-nya. Tahun {{ now()->year }}, semua bulan.</p>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-text-secondary">Fee Koperasi</span><span class="font-semibold text-cahaya-accent">{{ rupiah($stats['fee_koperasi_tahun_ini']) }}</span></div>
-                    <div class="flex justify-between"><span class="text-text-secondary">Hak Mitra</span><span class="font-semibold text-text-main">{{ rupiah($stats['hak_mitra_tahun_ini']) }}</span></div>
-                </div>
-            </div>
-
             <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
                 <h3 class="text-[15px] font-semibold text-text-main mb-4">Status Pembayaran</h3>
                 <div class="space-y-2.5 text-sm">
