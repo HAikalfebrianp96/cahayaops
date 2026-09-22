@@ -1,0 +1,5 @@
+# Berkas unggahan dari halaman Pengaturan (logo, tanda tangan, stempel).
+# Bukan kode: tidak ikut git, dan tanda tangan/stempel tidak boleh
+# tersebar lewat repositori.
+*
+!.gitignore
