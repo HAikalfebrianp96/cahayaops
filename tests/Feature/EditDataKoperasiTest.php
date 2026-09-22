@@ -10,7 +10,6 @@ use App\Models\Participant;
 use App\Models\Pendamping;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
@@ -474,13 +473,28 @@ class EditDataKoperasiTest extends TestCase
         $this->assertStringContainsString('Setoran ganda', $log->description);
     }
 
-    /** TIDAK ADA jalur hard delete untuk simpanan — dan itu disengaja. */
-    public function test_tidak_ada_route_hapus_simpanan(): void
+    /**
+     * JALUR HAPUS ADA, TAPI TIDAK MENGGANTIKAN KOREKSI.
+     *
+     * Test ini dulu berbunyi "tidak ada route hapus simpanan": baris simpanan
+     * sama sekali tidak bisa dibuang. Aturannya sekarang berubah — entri
+     * percobaan yang sudah dibatalkan tidak punya nilai histori apa pun dan
+     * hanya menumpuk di riwayat anggota.
+     *
+     * Yang TIDAK berubah, dan itulah yang dijaga di sini: entri yang masih
+     * berlaku tetap tidak bisa dibuang. Membatalkan lebih dulu (beserta
+     * alasannya) tetap syarat mutlak, jadi uang yang hilang dari laporan
+     * selalu punya keterangan.
+     */
+    public function test_simpanan_berlaku_tetap_tidak_bisa_dihapus(): void
     {
-        $this->assertFalse(
-            Route::has('koperasi.savings.destroy'),
-            'Baris simpanan tidak boleh punya jalur hapus — koreksinya lewat Batalkan.',
-        );
+        $simpanan = $this->simpanan();
+
+        $this->actingAs($this->timKoperasi)
+            ->delete(route('koperasi.savings.destroy', $simpanan))
+            ->assertSessionHasErrors('hapus');
+
+        $this->assertDatabaseHas('member_savings', ['id' => $simpanan->id]);
     }
 
     public function test_role_tanpa_hak_tidak_bisa_menyentuh_simpanan(): void

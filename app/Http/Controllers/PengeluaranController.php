@@ -6,8 +6,10 @@ use App\Models\ActivityLog;
 use App\Models\BusinessUnit;
 use App\Models\Pengeluaran;
 use App\Models\PengeluaranCategory;
+use App\Services\PenghapusanPermanenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -264,6 +266,58 @@ class PengeluaranController extends Controller
         if ($request->filled('metode_pembayaran')) {
             $query->where('metode_pembayaran', $request->string('metode_pembayaran'));
         }
+    }
+
+    /**
+     * HAPUS PERMANEN satu pengeluaran.
+     *
+     * =====================================================================
+     * HARUS DIBATALKAN DULU
+     * =====================================================================
+     *
+     * Penjaganya (PenghapusanPermanenService) menolak pengeluaran yang masih
+     * aktif: "Batalkan dulu (beserta alasannya), baru bisa dihapus permanen."
+     *
+     * Urutan itu disengaja dan sama dengan transaksi penjualan. Batalkan
+     * menuntut ALASAN, dan alasan itu tercatat di Activity Log — tanpa
+     * langkah itu, satu-satunya keterangan tentang uang yang hilang dari
+     * laporan adalah kata "dihapus".
+     *
+     * Berkas bukti (bukti_path) ikut dibuang oleh layanan itu, sehingga
+     * struk belanjanya tidak tertinggal di disk tanpa satu pun baris yang
+     * menunjuknya.
+     */
+    public function destroy(Pengeluaran $pengeluaran, PenghapusanPermanenService $penghapusan)
+    {
+        abort_unless(Auth::user()->bolehKelolaKoperasi(), 403);
+
+        $alasan = $penghapusan->alasanTertahan($pengeluaran);
+
+        if ($alasan !== null) {
+            return back()->withErrors(['hapus' => $alasan]);
+        }
+
+        // Diambil SEBELUM dihapus; sesudahnya tidak ada yang tersisa untuk
+        // dirujuk. Tidak ada data rahasia di sini.
+        $id = $pengeluaran->id;
+        $ringkasan = $pengeluaran->kategori . ' ' . rupiah($pengeluaran->nominal)
+            . ' (' . $pengeluaran->tanggal->format('d-m-Y') . ')';
+
+        DB::transaction(function () use ($pengeluaran, $penghapusan) {
+            $penghapusan->hapus($pengeluaran);
+        });
+
+        ActivityLog::record(
+            action: 'expense_permanently_deleted',
+            modelType: 'Pengeluaran',
+            modelId: $id,
+            description: 'PENGELUARAN DIHAPUS PERMANEN: ' . $ringkasan
+                . '. Tindakan ini tidak dapat dibatalkan.',
+        );
+
+        return redirect()
+            ->route('koperasi.pengeluaran.index')
+            ->with('success', 'Pengeluaran ' . $ringkasan . ' dihapus permanen.');
     }
 
     private function validated(Request $request, bool $isUpdate = false): array

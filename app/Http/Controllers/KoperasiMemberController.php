@@ -201,8 +201,17 @@ class KoperasiMemberController extends Controller
     }
 
     /**
-     * SOFT DELETE — keanggotaan ditandai terhapus, riwayat simpanannya TIDAK
-     * ikut hilang dan identitas pesertanya sama sekali tidak tersentuh.
+     * HAPUS PERMANEN keanggotaan.
+     *
+     * Docblock ini dulu berbunyi "SOFT DELETE" — keterangan yang sudah tidak
+     * benar sejak hapusDenganCatatan() dipakai di bawah: barisnya benar-benar
+     * dibuang, bukan ditandai.
+     *
+     * Yang ditahan lebih dulu oleh PenghapusanPermanenService justru
+     * riwayatnya: anggota yang punya simpanan tidak bisa dihapus, jadi uang
+     * anggota tidak pernah ikut lenyap bersama keanggotaannya. Untuk
+     * MENGAKHIRI keanggotaan tanpa membuang apa pun, yang dipakai kolom
+     * status ("Tidak Aktif" / "Mengundurkan Diri" / "Diberhentikan").
      */
     public function destroy(KoperasiMember $anggota)
     {

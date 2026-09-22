@@ -9,10 +9,16 @@
             <h2 class="text-[20px] font-bold text-text-main">Penjualan</h2>
             <p class="text-sm text-text-secondary mt-0.5">Daftar transaksi penjualan Koperasi Cahaya.</p>
         </div>
-        <a href="{{ route('koperasi.penjualan.create') }}"
-           class="inline-flex items-center justify-center bg-cahaya-primary text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:opacity-90 transition">
-            + Tambah Penjualan
-        </a>
+        {{-- Mencatat penjualan adalah kewenangan pengelola koperasi, sama
+             persis dengan syarat di SalesTransactionController::create().
+             Pimpinan boleh MEMBACA daftar ini — dan tombol yang dirender
+             untuknya cuma berujung 403. --}}
+        @if (auth()->user()->bolehKelolaKoperasi())
+            <a href="{{ route('koperasi.penjualan.create') }}"
+               class="inline-flex items-center justify-center bg-cahaya-primary text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:opacity-90 transition">
+                + Tambah Penjualan
+            </a>
+        @endif
     </div>
 
     <form method="GET" action="{{ route('koperasi.penjualan.index') }}"
@@ -60,8 +66,10 @@
         @if ($transaksi->isEmpty())
             <div class="text-center py-14">
                 <p class="text-sm font-medium text-text-main mb-1">Belum ada transaksi</p>
-                <p class="text-xs text-text-secondary mb-4">Catat transaksi penjualan pertama Anda.</p>
-                <a href="{{ route('koperasi.penjualan.create') }}" class="inline-block text-sm bg-cahaya-primary text-white font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">+ Tambah Penjualan</a>
+                @if (auth()->user()->bolehKelolaKoperasi())
+                    <p class="text-xs text-text-secondary mb-4">Catat transaksi penjualan pertama Anda.</p>
+                    <a href="{{ route('koperasi.penjualan.create') }}" class="inline-block text-sm bg-cahaya-primary text-white font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">+ Tambah Penjualan</a>
+                @endif
             </div>
         @else
             <div class="overflow-x-auto">
@@ -84,8 +92,25 @@
                             <tr class="border-b border-border-soft last:border-0 hover:bg-surface-bg/60 transition">
                                 <td class="px-4 py-3 text-text-main">{{ $t->nomor_transaksi }}</td>
                                 <td class="px-4 py-3 text-text-secondary">{{ $t->tanggal->format('d-m-Y') }}</td>
-                                <td class="px-4 py-3 text-text-secondary">{{ $t->businessUnit->nama ?? '—' }}</td>
-                                <td class="px-4 py-3 text-text-secondary">{{ $t->customer->nama ?? '—' }}</td>
+                                {{-- Nama unit dan pelanggan tetap ditampilkan walau
+                                     master-nya sudah diarsipkan — tapi DITANDAI.
+
+                                     Menampilkan namanya menjawab "siapa yang membeli";
+                                     penandanya menjawab "kenapa dia tidak ada di daftar
+                                     pelanggan". Tanpa penanda, petugas akan mencarinya
+                                     di daftar aktif dan tidak menemukannya. --}}
+                                <td class="px-4 py-3 text-text-secondary">
+                                    {{ $t->businessUnitTermasukArsip->nama ?? '—' }}
+                                    @if ($t->businessUnitTermasukArsip?->trashed())
+                                        <span class="text-[10px] text-text-secondary/70">(diarsipkan)</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-text-secondary">
+                                    {{ $t->customerTermasukArsip->nama ?? '—' }}
+                                    @if ($t->customerTermasukArsip?->trashed())
+                                        <span class="text-[10px] text-text-secondary/70">(diarsipkan)</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 font-medium text-text-main">{{ rupiah($t->total) }}</td>
                                 <td class="px-4 py-3">
                                     {{-- Dibatalkan ditandai dengan KATA, bukan hanya warna abu —

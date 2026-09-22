@@ -78,12 +78,16 @@
                                                 Edit
                                             </a>
                                             <form method="POST" action="{{ route('koperasi.anggota.destroy', $m) }}"
-                                                  onsubmit="return confirm('Pindahkan anggota ini ke arsip? Riwayat simpanannya tetap tersimpan.');">
+                                                  onsubmit="return confirm('Hapus Permanen?
+
+Data anggota ini akan dihapus dan TIDAK dapat dipulihkan.
+
+Anggota yang masih punya riwayat simpanan tidak bisa dihapus — sistem akan menolak dan menyebutkan alasannya.');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
                                                         class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium bg-surface-bg text-status-danger hover:bg-status-danger/10 transition">
-                                                    Hapus
+                                                    Hapus Permanen
                                                 </button>
                                             </form>
 

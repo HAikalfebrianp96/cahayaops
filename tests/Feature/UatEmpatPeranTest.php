@@ -115,13 +115,13 @@ class UatEmpatPeranTest extends TestCase
     }
 
     /**
-     * Simpanan milik anggota terarsip tetap diterangkan, juga ke Pimpinan.
+     * Simpanan milik anggota tidak aktif tetap diterangkan, juga ke Pimpinan.
      *
      * Angka yang berdiri tanpa penjelasan akan dibaca sebagai modal anggota
      * yang masih ada — padahal sebagian pemiliknya sudah tidak lagi menjadi
      * anggota, dan tidak menerima pembagian SHU.
      */
-    public function test_pimpinan_diberi_tahu_simpanan_milik_anggota_terarsip(): void
+    public function test_pimpinan_diberi_tahu_simpanan_milik_anggota_tidak_aktif(): void
     {
         $keluar = KoperasiMember::create([
             'nama' => 'Bu Sinta', 'nomor_hp' => '0813',
@@ -136,18 +136,18 @@ class UatEmpatPeranTest extends TestCase
             'status' => MemberSaving::STATUS_TERCATAT,
         ]);
 
-        $keluar->delete();
+        $keluar->update(['status' => 'Tidak Aktif']);
 
         $pimpinan = $this->buatUser(User::ROLE_PIMPINAN, 'pimpinan@uat.test');
 
         $this->actingAs($pimpinan)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('sudah diarsipkan', false);
+            ->assertSee('statusnya tidak lagi aktif', false);
     }
 
-    /** Kontrol pembanding: tanpa anggota terarsip, tidak ada keterangan. */
-    public function test_tanpa_anggota_terarsip_pimpinan_tidak_melihat_keterangan(): void
+    /** Kontrol pembanding: tanpa anggota tidak aktif, tidak ada keterangan. */
+    public function test_tanpa_anggota_tidak_aktif_pimpinan_tidak_melihat_keterangan(): void
     {
         $this->siapkanKoperasi();
         $pimpinan = $this->buatUser(User::ROLE_PIMPINAN, 'pimpinan@uat.test');
@@ -155,7 +155,7 @@ class UatEmpatPeranTest extends TestCase
         $this->actingAs($pimpinan)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertDontSee('sudah diarsipkan', false);
+            ->assertDontSee('statusnya tidak lagi aktif', false);
     }
 
     /** Pimpinan tetap read-only — menambah kartu tidak membuka pintu baru. */

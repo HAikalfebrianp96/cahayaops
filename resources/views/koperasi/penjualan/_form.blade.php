@@ -12,8 +12,10 @@
             'product_service_id' => $i->product_service_id, 'qty' => $i->qty,
             'harga_jual_snapshot' => (float) $i->harga_jual_snapshot, 'harga_modal_snapshot' => (float) $i->harga_modal_snapshot,
             'diskon' => (float) $i->diskon,
-            'tipe_kepemilikan' => ((float) $i->fee_rate > 0 || (float) $i->hak_mitra_amount > 0) ? 'Titip Jual' : 'Milik Koperasi',
-            'fee_rate' => (float) $i->fee_rate,
+            // Hak mitra disimpan sebagai TOTAL per baris; formnya meminta
+            // per unit, jadi dibagi qty di sini. Transaksi lama seluruhnya
+            // bernilai 0, jadi tidak ada angka yang bergeser.
+            'hak_mitra_per_unit' => $i->qty > 0 ? round((float) $i->hak_mitra_amount / $i->qty, 2) : 0,
         ])->values() : collect();
 
     $existingManualJson = $isEdit
@@ -21,8 +23,7 @@
             'nama_snapshot' => $i->nama_snapshot, 'jenis_snapshot' => $i->jenis_snapshot, 'qty' => $i->qty,
             'harga_jual_snapshot' => (float) $i->harga_jual_snapshot, 'harga_modal_snapshot' => (float) $i->harga_modal_snapshot,
             'diskon' => (float) $i->diskon, 'catatan' => $i->catatan,
-            'tipe_kepemilikan' => ((float) $i->fee_rate > 0 || (float) $i->hak_mitra_amount > 0) ? 'Titip Jual' : 'Milik Koperasi',
-            'fee_rate' => (float) $i->fee_rate,
+            'hak_mitra_per_unit' => $i->qty > 0 ? round((float) $i->hak_mitra_amount / $i->qty, 2) : 0,
         ])->values() : collect();
 @endphp
 
@@ -285,10 +286,13 @@
                     <div class="flex justify-between"><span class="text-text-secondary">Sisa</span><span id="sumSisa">Rp0</span></div>
                 </div>
 
+                {{-- Hak Mitra berdiri sendiri, TIDAK ikut mengurangi profit.
+
+                     Profit sudah dihitung dari Harga Jual dikurangi Modal/HPP.
+                     Kalau hak mitra ikut dikurangkan lagi sementara modalnya
+                     memang mewakili biaya yang sama, satu biaya terhitung dua
+                     kali dan profitnya jadi lebih kecil dari kenyataan. --}}
                 <div class="border-t border-dashed border-border-soft mt-4 pt-4 space-y-1 text-sm">
-                    <p class="text-xs text-text-secondary mb-1">Titip Jual</p>
-                    <div class="flex justify-between text-text-secondary"><span>Total Penjualan Titip Jual</span><span id="sumTitipJual">Rp0</span></div>
-                    <div class="flex justify-between text-text-secondary"><span>Fee Koperasi</span><span id="sumFeeKoperasi">Rp0</span></div>
                     <div class="flex justify-between text-text-secondary"><span>Hak Mitra</span><span id="sumHakMitra">Rp0</span></div>
                 </div>
 
@@ -322,18 +326,23 @@
                 <button type="button" onclick="removeRow(this)" class="text-status-danger text-xs hover:underline">Hapus</button>
             </div>
         </div>
+        {{-- HAK MITRA — satu isian opsional, bukan jenis transaksi.
+
+             Dulu baris ini memaksa memilih "Milik Koperasi" atau "Titip Jual"
+             lebih dulu, lalu meminta persentase fee koperasi, dan hak mitra
+             dihitung sebagai sisanya. Tiga keputusan untuk satu angka.
+
+             Sekarang cukup satu: berapa hak mitra per unit. Kosong berarti
+             tidak ada mitra — keadaan yang berlaku untuk seluruh transaksi
+             yang sudah ada. --}}
         <div class="grid grid-cols-12 gap-2 items-center">
-            <div class="col-span-3">
-                <select class="input-tipe w-full rounded-lg border border-border-soft px-2 py-1 text-xs" onchange="onTipeChange(this)">
-                    <option value="Milik Koperasi">Milik Koperasi</option>
-                    <option value="Titip Jual">Titip Jual</option>
-                </select>
+            <div class="col-span-4">
+                <input type="number" min="0" step="1" placeholder="Hak Mitra / unit (opsional)"
+                       class="input-hakmitra w-full rounded-lg border border-border-soft px-2 py-1 text-xs"
+                       oninput="recomputeSummary()">
             </div>
-            <div class="col-span-3 fee-field" style="display: none;">
-                <input type="number" min="0" max="100" step="0.1" placeholder="Fee Koperasi (%)" class="input-fee w-full rounded-lg border border-border-soft px-2 py-1 text-xs" oninput="recomputeSummary()">
-            </div>
-            <div class="col-span-6 fee-field text-xs text-text-secondary" style="display: none;">
-                Fee: <span class="fee-amount-label font-medium">Rp0</span> &middot; Hak Mitra: <span class="hakmitra-label font-medium">Rp0</span>
+            <div class="col-span-8 text-xs text-text-secondary">
+                Hak Mitra baris ini: <span class="hakmitra-label font-medium">Rp0</span>
             </div>
         </div>
     </div>
@@ -358,18 +367,23 @@
                 <button type="button" onclick="removeRow(this)" class="text-status-danger text-xs hover:underline">Hapus</button>
             </div>
         </div>
+        {{-- HAK MITRA — satu isian opsional, bukan jenis transaksi.
+
+             Dulu baris ini memaksa memilih "Milik Koperasi" atau "Titip Jual"
+             lebih dulu, lalu meminta persentase fee koperasi, dan hak mitra
+             dihitung sebagai sisanya. Tiga keputusan untuk satu angka.
+
+             Sekarang cukup satu: berapa hak mitra per unit. Kosong berarti
+             tidak ada mitra — keadaan yang berlaku untuk seluruh transaksi
+             yang sudah ada. --}}
         <div class="grid grid-cols-12 gap-2 items-center">
-            <div class="col-span-3">
-                <select class="input-tipe w-full rounded-lg border border-border-soft px-2 py-1 text-xs" onchange="onTipeChange(this)">
-                    <option value="Milik Koperasi">Milik Koperasi</option>
-                    <option value="Titip Jual">Titip Jual</option>
-                </select>
+            <div class="col-span-4">
+                <input type="number" min="0" step="1" placeholder="Hak Mitra / unit (opsional)"
+                       class="input-hakmitra w-full rounded-lg border border-border-soft px-2 py-1 text-xs"
+                       oninput="recomputeSummary()">
             </div>
-            <div class="col-span-3 fee-field" style="display: none;">
-                <input type="number" min="0" max="100" step="0.1" placeholder="Fee Koperasi (%)" class="input-fee w-full rounded-lg border border-border-soft px-2 py-1 text-xs" oninput="recomputeSummary()">
-            </div>
-            <div class="col-span-6 fee-field text-xs text-text-secondary" style="display: none;">
-                Fee: <span class="fee-amount-label font-medium">Rp0</span> &middot; Hak Mitra: <span class="hakmitra-label font-medium">Rp0</span>
+            <div class="col-span-8 text-xs text-text-secondary">
+                Hak Mitra baris ini: <span class="hakmitra-label font-medium">Rp0</span>
             </div>
         </div>
         <input type="text" placeholder="Catatan (boleh kosong)" class="input-catatan w-full rounded-lg border border-border-soft px-2 py-1.5 text-sm">
@@ -510,17 +524,6 @@ function formatRp(n) {
     return 'Rp' + Math.round(n).toLocaleString('id-ID');
 }
 
-function onTipeChange(select) {
-    const row = select.closest('.item-row');
-    const isTitipJual = select.value === 'Titip Jual';
-    row.querySelectorAll('.fee-field').forEach(el => el.style.display = isTitipJual ? '' : 'none');
-    if (! isTitipJual) {
-        const feeInput = row.querySelector('.input-fee');
-        if (feeInput) feeInput.value = '';
-    }
-    recomputeSummary();
-}
-
 function addMasterRow(prefill) {
     const tpl = document.getElementById('templateMasterRow').content.cloneNode(true);
     const row = tpl.querySelector('.item-row');
@@ -537,8 +540,7 @@ function addMasterRow(prefill) {
     row.querySelector('.input-harga').name = `items_master[${idx}][harga_jual]`;
     row.querySelector('.input-hpp').name = `items_master[${idx}][harga_modal]`;
     row.querySelector('.input-diskon').name = `items_master[${idx}][diskon]`;
-    row.querySelector('.input-tipe').name = `items_master[${idx}][tipe_kepemilikan]`;
-    row.querySelector('.input-fee').name = `items_master[${idx}][fee_rate]`;
+    row.querySelector('.input-hakmitra').name = `items_master[${idx}][hak_mitra_per_unit]`;
 
     document.getElementById('masterItemsContainer').appendChild(row);
 
@@ -553,10 +555,8 @@ function addMasterRow(prefill) {
         const opt = lastRow.querySelector('.produk-select').selectedOptions[0];
         if (opt) lastRow.querySelector('.satuan-label').textContent = 'Satuan: ' + (opt.dataset.satuan || '-');
 
-        if (prefill.tipe_kepemilikan === 'Titip Jual') {
-            lastRow.querySelector('.input-tipe').value = 'Titip Jual';
-            lastRow.querySelectorAll('.fee-field').forEach(el => el.style.display = '');
-            lastRow.querySelector('.input-fee').value = prefill.fee_rate || 0;
+        if (prefill.hak_mitra_per_unit > 0) {
+            lastRow.querySelector('.input-hakmitra').value = prefill.hak_mitra_per_unit;
         }
     }
 
@@ -587,8 +587,7 @@ function addManualRow(prefill) {
     row.querySelector('.input-hpp').name = `items_manual[${idx}][harga_modal]`;
     row.querySelector('.input-diskon').name = `items_manual[${idx}][diskon]`;
     row.querySelector('.input-catatan').name = `items_manual[${idx}][catatan]`;
-    row.querySelector('.input-tipe').name = `items_manual[${idx}][tipe_kepemilikan]`;
-    row.querySelector('.input-fee').name = `items_manual[${idx}][fee_rate]`;
+    row.querySelector('.input-hakmitra').name = `items_manual[${idx}][hak_mitra_per_unit]`;
 
     document.getElementById('manualItemsContainer').appendChild(row);
 
@@ -603,10 +602,8 @@ function addManualRow(prefill) {
         lastRow.querySelector('.input-diskon').value = prefill.diskon;
         lastRow.querySelector('.input-catatan').value = prefill.catatan || '';
 
-        if (prefill.tipe_kepemilikan === 'Titip Jual') {
-            lastRow.querySelector('.input-tipe').value = 'Titip Jual';
-            lastRow.querySelectorAll('.fee-field').forEach(el => el.style.display = '');
-            lastRow.querySelector('.input-fee').value = prefill.fee_rate || 0;
+        if (prefill.hak_mitra_per_unit > 0) {
+            lastRow.querySelector('.input-hakmitra').value = prefill.hak_mitra_per_unit;
         }
     }
 
@@ -637,15 +634,14 @@ function onStatusBayarChange() {
 
 function recomputeSummary() {
     let totalItem = 0, totalQty = 0, subtotal = 0, totalHpp = 0;
-    let totalTitipJual = 0, totalFee = 0, totalHakMitra = 0;
+    let totalHakMitra = 0;
 
     document.querySelectorAll('#masterItemsContainer .item-row, #manualItemsContainer .item-row').forEach(row => {
         const qty = parseFloat(row.querySelector('.input-qty')?.value || 0);
         const harga = parseFloat(row.querySelector('.input-harga')?.value || 0);
         const hpp = parseFloat(row.querySelector('.input-hpp')?.value || 0);
         const diskonItem = parseFloat(row.querySelector('.input-diskon')?.value || 0);
-        const tipe = row.querySelector('.input-tipe')?.value || 'Milik Koperasi';
-        const feeRate = parseFloat(row.querySelector('.input-fee')?.value || 0);
+        const hakMitraPerUnit = parseFloat(row.querySelector('.input-hakmitra')?.value || 0);
 
         if (qty > 0) {
             totalItem++;
@@ -654,22 +650,18 @@ function recomputeSummary() {
             const label = row.querySelector('.subtotal-label');
             if (label) label.textContent = formatRp(rowSubtotal);
 
-            if (tipe === 'Titip Jual') {
-                const feeAmount = Math.round(rowSubtotal * feeRate) / 100;
-                const hakMitra = Math.max(0, rowSubtotal - feeAmount);
-                totalTitipJual += rowSubtotal;
-                totalFee += feeAmount;
-                totalHakMitra += hakMitra;
+            // SETIAP baris masuk Total Penjualan dan Total Modal — tidak ada
+            // lagi item yang dikecualikan karena jenisnya.
+            subtotal += rowSubtotal;
+            totalHpp += qty * hpp;
 
-                const feeLabel = row.querySelector('.fee-amount-label');
-                const hmLabel = row.querySelector('.hakmitra-label');
-                if (feeLabel) feeLabel.textContent = formatRp(feeAmount);
-                if (hmLabel) hmLabel.textContent = formatRp(hakMitra);
-                // Item Titip Jual TIDAK masuk Subtotal/HPP koperasi (bukan barang milik koperasi).
-            } else {
-                subtotal += rowSubtotal;
-                totalHpp += qty * hpp;
-            }
+            // Hak mitra dicatat terpisah dan TIDAK mengurangi profit di sini:
+            // profit sudah dihitung dari Harga Jual dikurangi Modal/HPP.
+            const hakMitra = Math.max(0, qty * hakMitraPerUnit);
+            totalHakMitra += hakMitra;
+
+            const hmLabel = row.querySelector('.hakmitra-label');
+            if (hmLabel) hmLabel.textContent = formatRp(hakMitra);
         } else {
             const label = row.querySelector('.subtotal-label');
             if (label) label.textContent = 'Rp0';
@@ -681,13 +673,12 @@ function recomputeSummary() {
     const ongkirDitanggung = document.querySelector('input[name="ongkir_ditanggung"]:checked')?.value || 'Pelanggan';
     const ongkirKeTotal = ongkirDitanggung === 'Koperasi' ? 0 : ongkir;
 
-    // Pelanggan tetap bayar NILAI PENUH barang Titip Jual (barangnya laku penuh) —
-    // yang beda cuma mana yang jadi PENDAPATAN KOPERASI (cuma Fee-nya).
-    const totalTagihanKotor = subtotal + totalTitipJual;
-    const grandTotal = Math.max(0, totalTagihanKotor - diskonTrx) + ongkirKeTotal;
+    const grandTotal = Math.max(0, subtotal - diskonTrx) + ongkirKeTotal;
 
-    const labaKotorKoperasi = subtotal - totalHpp;
-    const estimasiProfit = labaKotorKoperasi + totalFee;
+    // Estimasi Profit = Total Penjualan - Total Modal/HPP. Titik.
+    // Hak Mitra tidak ikut dikurangkan: kalau modalnya memang sudah mewakili
+    // biaya yang sama, satu biaya akan terhitung dua kali.
+    const estimasiProfit = subtotal - totalHpp;
 
     const statusBayar = document.getElementById('inputStatusBayar')?.value;
     let dibayar = 0;
@@ -703,14 +694,12 @@ function recomputeSummary() {
 
     document.getElementById('sumTotalItem').textContent = totalItem;
     document.getElementById('sumTotalQty').textContent = totalQty;
-    document.getElementById('sumSubtotal').textContent = formatRp(subtotal + totalTitipJual);
+    document.getElementById('sumSubtotal').textContent = formatRp(subtotal);
     document.getElementById('sumDiskon').textContent = formatRp(diskonTrx);
     document.getElementById('sumOngkir').textContent = formatRp(ongkirKeTotal);
     document.getElementById('sumGrandTotal').textContent = formatRp(grandTotal);
     document.getElementById('sumDibayar').textContent = formatRp(dibayar);
     document.getElementById('sumSisa').textContent = formatRp(sisa);
-    document.getElementById('sumTitipJual').textContent = formatRp(totalTitipJual);
-    document.getElementById('sumFeeKoperasi').textContent = formatRp(totalFee);
     document.getElementById('sumHakMitra').textContent = formatRp(totalHakMitra);
     document.getElementById('sumTotalHpp').textContent = formatRp(totalHpp);
     document.getElementById('sumEstimasiProfit').textContent = formatRp(estimasiProfit);

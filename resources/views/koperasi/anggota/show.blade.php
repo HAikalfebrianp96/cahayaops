@@ -82,12 +82,16 @@
                 Edit
             </a>
             <form method="POST" action="{{ route('koperasi.anggota.destroy', $member) }}"
-                  onsubmit="return confirm('Pindahkan anggota ini ke arsip? Riwayat simpanannya tetap tersimpan dan bisa dipulihkan.');">
+                  onsubmit="return confirm('Hapus Permanen?
+
+Data anggota ini akan dihapus dan TIDAK dapat dipulihkan.
+
+Anggota yang masih punya riwayat simpanan tidak bisa dihapus — sistem akan menolak dan menyebutkan alasannya.');">
                 @csrf
                 @method('DELETE')
                 <button type="submit"
                         class="text-sm font-medium text-status-danger border border-status-danger/30 px-5 py-2.5 rounded-lg hover:bg-status-danger/5 transition">
-                    Hapus
+                    Hapus Permanen
                 </button>
             </form>
             <a href="{{ route('koperasi.anggota.index') }}" class="text-sm text-text-secondary px-5 py-2.5 hover:text-text-main">
@@ -280,6 +284,28 @@ Nominalnya akan kembali dihitung ke total simpanan anggota.');">
                                     <span class="text-[11px] text-text-secondary" title="Batalkan dulu entri penggantinya kalau entri ini memang perlu dipulihkan.">
                                         sudah diganti
                                     </span>
+                                @endif
+
+                                {{-- HAPUS PERMANEN — hanya muncul untuk entri yang SUDAH
+                                     dibatalkan, jadi membuangnya selalu keputusan KEDUA yang
+                                     diambil pada waktu berbeda dari pembatalannya. Entri yang
+                                     sudah jadi mata rantai koreksi entri lain tetap ditolak
+                                     PenghapusanPermanenService, beserta alasannya.
+
+                                     Saldo anggota tidak disimpan di kolom mana pun — selalu
+                                     dijumlahkan dari entri-entri ini — jadi begitu barisnya
+                                     hilang, saldonya ikut menyesuaikan sendiri. --}}
+                                @if ($s->dibatalkan())
+                                    @can('hapusPermanen', $s)
+                                        <form method="POST" action="{{ route('koperasi.savings.destroy', $s) }}" class="inline"
+                                              onsubmit="return confirm('Hapus Permanen?
+
+Data yang dihapus tidak dapat dipulihkan.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-xs text-status-danger hover:underline">Hapus Permanen</button>
+                                        </form>
+                                    @endcan
                                 @endif
                             </td>
                         </tr>

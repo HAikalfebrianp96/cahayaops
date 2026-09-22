@@ -21,7 +21,16 @@ class HppCalculationController extends Controller
 
         return view('hpp.index', [
             'participant' => $participant,
-            'calculations' => $participant->hppCalculations,
+
+            // withCount komponen dipakai kalimat konfirmasi hapus.
+            //
+            // Satu perhitungan HPP memuat 4 sampai 14 baris bahan yang
+            // disusun Pendamping bersama pesertanya, dan hpp_components
+            // ber-ON DELETE CASCADE. Tanpa angka ini, konfirmasinya hanya
+            // bisa berkata "data ini" — dan orang yang melihat satu baris di
+            // tabel tidak punya cara menduga bahwa seluruh rincian bahannya
+            // ikut hilang.
+            'calculations' => $participant->hppCalculations()->withCount('components')->get(),
         ]);
     }
 

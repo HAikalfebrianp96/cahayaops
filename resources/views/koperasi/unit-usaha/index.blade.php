@@ -42,7 +42,11 @@
                              cara yang benar tetap mengubah statusnya jadi "Tidak Aktif"
                              lewat Edit — datanya tetap tampil di laporan. --}}
                         <form method="POST" action="{{ route('koperasi.unit-usaha.destroy', $unit) }}"
-                              onsubmit="return confirm('Pindahkan unit usaha ini ke arsip? Produk, penjualan, dan pengeluarannya tetap tersimpan.');">
+                              onsubmit="return confirm('Hapus Permanen?
+
+Unit usaha ini akan dihapus dan TIDAK dapat dipulihkan.
+
+Unit yang masih punya produk, penjualan, atau pengeluaran tidak bisa dihapus — sistem akan menolak dan menyebutkan apa yang menahannya.');">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="text-xs font-medium text-status-danger hover:underline">Hapus Permanen</button>

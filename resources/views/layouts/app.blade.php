@@ -531,6 +531,43 @@
                     </div>
                 @endif
 
+                {{--
+                    PESAN GAGAL. Sebagian besar berasal dari penolakan hapus
+                    permanen: "Peserta ini punya 1 laporan omzet ... tidak bisa
+                    dihapus."
+
+                    19 controller mengirim pesan seperti ini, tapi sebelum blok
+                    ini ada hanya 3 halaman yang menampilkannya — di semua
+                    halaman lain tombolnya seolah tidak bereaksi sama sekali.
+                --}}
+                @if (session('error'))
+                    <div class="mb-4 rounded-xl bg-status-danger/10 border border-status-danger/30 px-4 py-3 text-sm text-status-danger no-print">
+                        {{ session('error') }}
+                    </div>
+                @endif
+
+                {{--
+                    PENOLAKAN TINDAKAN — bukan galat isian form.
+
+                    PenghapusanPermanenService sengaja mengembalikan KALIMAT,
+                    bukan boolean, supaya operator yang tombolnya menolak tahu
+                    APA yang menahannya ("ternyata produk ini pernah terjual").
+                    Kalimat itu dikirim lewat withErrors(['hapus' => ...]) —
+                    dan sebelum blok ini ada, tidak ada satu pun halaman yang
+                    menampilkannya: tombolnya seolah tidak bereaksi.
+
+                    Yang ditampilkan HANYA kunci tindakan. Galat isian form
+                    tetap urusan @error di sebelah isiannya masing-masing,
+                    supaya pesannya tidak muncul dua kali di dua tempat.
+                --}}
+                @foreach (['hapus', 'restore', 'akun'] as $kunciTindakan)
+                    @error($kunciTindakan)
+                        <div class="mb-4 rounded-xl bg-status-danger/10 border border-status-danger/30 px-4 py-3 text-sm text-status-danger no-print">
+                            {{ $message }}
+                        </div>
+                    @enderror
+                @endforeach
+
                 @yield('content')
             </main>
         </div>

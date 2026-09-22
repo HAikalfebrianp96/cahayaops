@@ -106,22 +106,27 @@ class MemberSaving extends Model
     /**
      * Simpanan yang pemiliknya SUDAH TIDAK LAGI menjadi anggota.
      *
-     * Mengarsipkan anggota tidak mengembalikan uangnya: barisnya tetap
+     * Menonaktifkan anggota tidak mengembalikan uangnya: barisnya tetap
      * berlaku, dan koperasi tetap memegang dananya. Jadi angkanya memang
      * benar ikut dilaporkan — yang keliru adalah menampilkannya tanpa
      * keterangan, seolah-olah itu simpanan anggota yang masih ada.
+     *
+     * Dasarnya kolom STATUS, bukan arsip. Dulu keduanya hidup berdampingan
+     * untuk satu keadaan yang sama — dan pada data berjalan keduanya sempat
+     * saling bertentangan: dua anggota terarsip yang kolom statusnya tetap
+     * "Aktif". Satu keadaan cukup punya satu penanda.
      *
      * Akibatnya bisa terbaca aneh di satu halaman yang sama: "Total Anggota 1"
      * berdampingan dengan simpanan yang tak satu pun miliknya.
      *
      * ShuService sudah lama memakai penyaringan ini untuk menolak membagi
-     * jasa modal kepada anggota terarsip. Definisinya dipindahkan ke sini
-     * supaya laporan dan SHU tidak mungkin berbeda pendapat tentang uang
+     * jasa modal kepada anggota yang bukan anggota aktif. Definisinya ada di
+     * sini supaya laporan dan SHU tidak mungkin berbeda pendapat tentang uang
      * yang sama.
      */
-    public function scopeMilikAnggotaTerarsip(Builder $query): Builder
+    public function scopeMilikAnggotaTidakAktif(Builder $query): Builder
     {
-        return $query->whereHas('koperasiMember', fn ($q) => $q->onlyTrashed());
+        return $query->whereHas('koperasiMember', fn ($q) => $q->where('status', '!=', 'Aktif'));
     }
 
     public function dibatalkan(): bool

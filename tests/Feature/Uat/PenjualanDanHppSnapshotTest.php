@@ -211,7 +211,7 @@ class PenjualanDanHppSnapshotTest extends TestCase
     // D. TITIP JUAL / KONSINYASI
     // ==================================================================
 
-    public function test_titip_jual_memisahkan_fee_koperasi_dari_hak_mitra(): void
+    public function test_hak_mitra_dicatat_terpisah_tanpa_persentase_fee(): void
     {
         // 10 x 50.000 = 500.000 nilai penjualan, fee koperasi 10% = 50.000,
         // hak pemilik produk = 450.000.
@@ -224,17 +224,31 @@ class PenjualanDanHppSnapshotTest extends TestCase
 
         $trx = $this->jual([[
             'product_id' => $titipan->id, 'qty' => 10,
-            'tipe_kepemilikan' => 'Titip Jual', 'fee_rate' => 10,
+            'hak_mitra_per_unit' => 45_000,
         ]]);
 
         $item = $trx->items->first();
 
+        // Nilai penjualannya utuh, hak mitra dicatat berdampingan, dan tidak
+        // ada persentase fee yang ikut bermain.
         $this->assertSame(500_000.0, (float) $item->subtotal);
-        $this->assertSame(50_000.0, (float) $item->fee_amount);
         $this->assertSame(450_000.0, (float) $item->hak_mitra_amount);
+        $this->assertSame(0.0, (float) $item->fee_amount);
+        $this->assertSame(0.0, (float) $item->fee_rate);
     }
 
-    public function test_laporan_tidak_membaca_gross_titip_jual_sebagai_pendapatan_koperasi(): void
+    /**
+     * Laporan menghitung SELURUH penjualan, dan hak mitra tidak terhitung
+     * dua kali.
+     *
+     * Test ini dulu menjaga kebalikannya: item titipan dikeluarkan dari
+     * pendapatan koperasi, dan yang masuk hanya fee-nya. Aturan itu diganti.
+     *
+     * Yang tetap dijaga adalah jaminan yang sesungguhnya: tidak ada uang
+     * yang terhitung dua kali. Kontribusi usaha harus SAMA dengan laba kotor
+     * — hak mitra tidak boleh ikut dikurangkan lagi setelah modal.
+     */
+    public function test_laporan_menghitung_seluruh_penjualan_tanpa_menghitung_dua_kali(): void
     {
         $titipan = ProductService::create([
             'unit_id' => $this->unit->id,
@@ -245,23 +259,37 @@ class PenjualanDanHppSnapshotTest extends TestCase
 
         $this->jual([[
             'product_id' => $titipan->id, 'qty' => 10,
-            'tipe_kepemilikan' => 'Titip Jual', 'fee_rate' => 10,
+            'hak_mitra_per_unit' => 45_000,
         ]]);
 
         $lr = app(LabaRugiService::class)->hitung((string) now()->year, 'semua')['total'];
 
-        // Penjualan koperasi sendiri NOL — tidak ada barang milik koperasi
-        // yang terjual. Yang didapat koperasi hanyalah fee-nya.
-        $this->assertSame(0.0, (float) $lr['penjualan']);
-        $this->assertSame(50_000.0, (float) $lr['fee_koperasi']);
-        $this->assertSame(450_000.0, (float) $lr['hak_mitra']);
+        // Penjualannya utuh; modalnya 0 karena produk ini memang tidak punya
+        // harga modal, jadi laba kotornya penuh.
+        $this->assertSame(500_000.0, (float) $lr['penjualan']);
+        $this->assertSame(0.0, (float) $lr['hpp']);
+        $this->assertSame(500_000.0, (float) $lr['laba_kotor']);
 
-        // Kontribusi usaha = laba kotor (0) + fee (50.000).
-        $this->assertSame(50_000.0, (float) $lr['kontribusi_usaha']);
-        $this->assertNotSame(500_000.0, (float) $lr['kontribusi_usaha']);
+        // Hak mitra tercatat berdampingan, bukan mengurangi.
+        $this->assertSame(450_000.0, (float) $lr['hak_mitra']);
+        $this->assertSame(0.0, (float) $lr['fee_koperasi']);
+
+        // TIDAK DIHITUNG DUA KALI: kontribusi usaha sama dengan laba kotor.
+        $this->assertSame((float) $lr['laba_kotor'], (float) $lr['kontribusi_usaha']);
     }
 
-    public function test_titip_jual_dan_milik_koperasi_dalam_satu_transaksi_dihitung_terpisah(): void
+    /**
+     * Item dengan dan tanpa hak mitra dihitung dengan cara yang SAMA.
+     *
+     * Dulu keduanya diperlakukan berbeda: item titipan dikeluarkan dari
+     * penjualan dan HPP. Akibatnya dua barang yang terjual pada harga yang
+     * sama bisa menghasilkan angka laporan yang berbeda hanya karena
+     * jenisnya dipilih berbeda.
+     *
+     * Sekarang keduanya masuk penuh; yang membedakan hanya ada atau tidaknya
+     * hak mitra, dan itu dicatat di kolomnya sendiri.
+     */
+    public function test_item_dengan_dan_tanpa_hak_mitra_dihitung_sama(): void
     {
         $titipan = ProductService::create([
             'unit_id' => $this->unit->id,
@@ -271,22 +299,25 @@ class PenjualanDanHppSnapshotTest extends TestCase
         ]);
 
         $this->jual([
-            ['product_id' => $this->produk->id, 'qty' => 10],   // milik koperasi
-            ['product_id' => $titipan->id, 'qty' => 4, 'tipe_kepemilikan' => 'Titip Jual', 'fee_rate' => 20],
+            ['product_id' => $this->produk->id, 'qty' => 10],                                  // tanpa hak mitra
+            ['product_id' => $titipan->id, 'qty' => 4, 'hak_mitra_per_unit' => 40_000],        // ada hak mitra
         ]);
 
         $lr = app(LabaRugiService::class)->hitung((string) now()->year, 'semua')['total'];
 
-        // Milik koperasi: 10 x 15.000 = 150.000 penjualan, HPP 10 x 8.000 = 80.000.
-        $this->assertSame(150_000.0, (float) $lr['penjualan']);
+        // KEDUANYA masuk: (10 x 15.000) + (4 x 50.000) = 350.000.
+        $this->assertSame(350_000.0, (float) $lr['penjualan']);
+
+        // HPP keduanya ikut: (10 x 8.000) + (4 x 0) = 80.000.
         $this->assertSame(80_000.0, (float) $lr['hpp']);
-        $this->assertSame(70_000.0, (float) $lr['laba_kotor']);
+        $this->assertSame(270_000.0, (float) $lr['laba_kotor']);
 
-        // Titipan: 4 x 50.000 = 200.000, fee 20% = 40.000.
-        $this->assertSame(40_000.0, (float) $lr['fee_koperasi']);
+        // Hak mitra hanya dari item kedua: 4 x 40.000.
         $this->assertSame(160_000.0, (float) $lr['hak_mitra']);
+        $this->assertSame(0.0, (float) $lr['fee_koperasi']);
 
-        $this->assertSame(110_000.0, (float) $lr['kontribusi_usaha']);
+        // Tidak dihitung dua kali.
+        $this->assertSame((float) $lr['laba_kotor'], (float) $lr['kontribusi_usaha']);
     }
 
     // ==================================================================

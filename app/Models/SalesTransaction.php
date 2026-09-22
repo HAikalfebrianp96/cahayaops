@@ -80,9 +80,25 @@ class SalesTransaction extends Model
         static::creating(function (SalesTransaction $trx) {
             if (empty($trx->nomor_transaksi)) {
                 $periode = now()->format('Ym');
-                $urutan = static::whereYear('created_at', now()->year)
-                    ->whereMonth('created_at', now()->month)
-                    ->count() + 1;
+
+                // Dihitung dari NOMOR TERTINGGI bulan ini, bukan dari jumlah
+                // baris.
+                //
+                // count()+1 aman hanya selama tidak ada yang pernah dihapus.
+                // Sejak Hapus Permanen tersedia, syarat itu tidak berlaku:
+                // menghapus satu transaksi di tengah membuat nomor berikutnya
+                // menabrak nomor yang masih dipakai. Kolomnya ber-unique,
+                // jadi akibatnya bukan data rusak melainkan penyimpanan
+                // GAGAL — dengan galat database yang tidak bisa dimengerti
+                // petugas.
+                $terakhir = static::withoutGlobalScopes()
+                    ->where('nomor_transaksi', 'like', 'TRX-' . $periode . '-%')
+                    ->orderByDesc('nomor_transaksi')
+                    ->value('nomor_transaksi');
+
+                $urutan = $terakhir === null
+                    ? 1
+                    : ((int) substr($terakhir, strlen('TRX-' . $periode . '-'))) + 1;
                 $trx->nomor_transaksi = 'TRX-' . $periode . '-' . str_pad((string) $urutan, 6, '0', STR_PAD_LEFT);
             }
         });
@@ -202,19 +218,22 @@ class SalesTransaction extends Model
     /** INTERNAL/ADMIN SAJA — jangan tampilkan ke customer di invoice. */
     public function totalHpp(): float
     {
-        // HANYA item Milik Koperasi yang punya konsep HPP koperasi.
-        // Item Titip Jual bukan barang milik koperasi, jadi TIDAK dihitung di sini
-        // (samakan logikanya dgn LabaRugiService — hindari double counting).
+        // SETIAP item punya modal, tanpa kecuali.
+        //
+        // Dulu item yang punya fee atau hak mitra dianggap "Titip Jual" dan
+        // modalnya dikeluarkan dari sini. Akibatnya dua transaksi dengan
+        // barang dan harga yang sama menghasilkan angka berbeda hanya karena
+        // salah satunya diberi hak mitra — dan selisihnya tidak muncul di
+        // mana pun sebagai penjelasan.
         return (float) $this->items
-            ->filter(fn ($item) => (float) $item->fee_rate <= 0 && (float) $item->hak_mitra_amount <= 0)
             ->sum(fn ($item) => $item->qty * (float) $item->harga_modal_snapshot);
     }
 
-    /** Total nilai penjualan item Titip Jual (BUKAN pendapatan koperasi). */
-    public function totalPenjualanTitipJual(): float
+    /** Total nilai penjualan item yang punya hak mitra. */
+    public function totalPenjualanAdaHakMitra(): float
     {
         return (float) $this->items
-            ->filter(fn ($item) => (float) $item->fee_rate > 0 || (float) $item->hak_mitra_amount > 0)
+            ->filter(fn ($item) => (float) $item->hak_mitra_amount > 0)
             ->sum('subtotal');
     }
 
@@ -230,19 +249,18 @@ class SalesTransaction extends Model
 
     /**
      * "Estimasi Profit" (BUKAN Laba Bersih — Pengeluaran belum diperhitungkan).
-     * Mengikuti logika yang SAMA dengan LabaRugiService:
-     * - Item Milik Koperasi: Penjualan - HPP
-     * - Item Titip Jual: Fee Koperasi SAJA (bukan nilai penjualan penuh)
+     *
+     *     Total Penjualan - Total Modal/HPP
+     *
+     * Hak Mitra TIDAK dikurangkan di sini. Kalau modal item itu memang sudah
+     * mewakili biaya yang sama, mengurangkannya lagi membuat satu biaya
+     * terhitung dua kali dan profitnya lebih kecil dari kenyataan.
+     *
+     * Logikanya sengaja dibuat sama persis dengan LabaRugiService.
      */
     public function estimasiProfit(): float
     {
-        $penjualanKoperasi = (float) $this->items
-            ->filter(fn ($item) => (float) $item->fee_rate <= 0 && (float) $item->hak_mitra_amount <= 0)
-            ->sum('subtotal');
-
-        $labaKotorKoperasi = $penjualanKoperasi - $this->totalHpp();
-
-        return $labaKotorKoperasi + $this->totalFeeKoperasi();
+        return (float) $this->items->sum('subtotal') - $this->totalHpp();
     }
 
     public function totalQty(): int

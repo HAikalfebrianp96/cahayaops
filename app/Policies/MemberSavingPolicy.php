@@ -20,7 +20,13 @@ use App\Models\User;
  *   batalkan -> membatalkan entri (barisnya TETAP ada) dan boleh diikuti
  *               entri pengganti. Inilah jalur koreksi yang berjejak.
  *
- * Tidak ada method delete: baris simpanan tidak pernah dihapus.
+ * hapusPermanen -> membuang barisnya untuk selamanya. Ini BUKAN jalur
+ *                  koreksi — jalur koreksi tetap batalkan(). Yang ini ada
+ *                  karena entri percobaan yang sudah dibatalkan tidak punya
+ *                  nilai histori apa pun, hanya menumpuk di riwayat anggota.
+ *                  Syaratnya diperiksa di PenghapusanPermanenService:
+ *                  harus sudah dibatalkan, dan tidak sedang jadi mata rantai
+ *                  koreksi entri lain.
  */
 class MemberSavingPolicy
 {
@@ -66,5 +72,22 @@ class MemberSavingPolicy
         return $user->bolehKelolaKoperasi()
             && $saving->dibatalkan()
             && ! $saving->punyaPenggantiBerlaku();
+    }
+
+    /**
+     * HAPUS PERMANEN satu entri simpanan.
+     *
+     * Rolenya sama dengan tindakan koperasi lainnya. Yang membatasi bukan
+     * role melainkan KEADAAN DATA — dan keadaan itu diperiksa di
+     * PenghapusanPermanenService, bukan diulang di sini, supaya syaratnya
+     * hanya punya satu tempat tinggal.
+     *
+     * Satu hal yang TIDAK menahannya, dan itu disengaja: status anggotanya.
+     * Anggota yang dinonaktifkan tetap punya simpanan yang harus utuh —
+     * simpanan tidak pernah dihapus karena status anggotanya berubah.
+     */
+    public function hapusPermanen(User $user, MemberSaving $saving): bool
+    {
+        return $user->bolehKelolaKoperasi();
     }
 }

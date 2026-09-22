@@ -85,15 +85,15 @@
                 <div class="border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Saldo Dana Sukarela</p><p class="font-bold">{{ rupiah($saldoDanaSosial) }}</p></div>
                 <div class="border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Saldo Dana Hibah</p><p class="font-bold">{{ rupiah($saldoDanaHibah) }}</p></div>            </div>
 
-            @if (($simpananTerarsip ?? 0) > 0)
+            @if (($simpananAnggotaTidakAktif ?? 0) > 0)
                 {{-- Keterangan, bukan pengurangan angka.
-                     Mengarsipkan anggota tidak mengembalikan uangnya, jadi
+                     Menonaktifkan anggota tidak mengembalikan uangnya, jadi
                      koperasi memang masih memegang dana ini. Yang keliru
                      adalah menampilkannya tanpa keterangan, seolah-olah itu
                      simpanan anggota yang masih ada. --}}
                 <p class="mt-2 text-xs text-text-secondary">
-                    Termasuk <span class="font-semibold text-text-main">{{ rupiah($simpananTerarsip) }}</span>
-                    simpanan pokok/wajib milik anggota yang sudah diarsipkan. Dananya masih dipegang koperasi,
+                    Termasuk <span class="font-semibold text-text-main">{{ rupiah($simpananAnggotaTidakAktif) }}</span>
+                    simpanan pokok/wajib milik anggota yang statusnya tidak lagi aktif. Dananya masih dipegang koperasi,
                     tetapi pemiliknya tidak lagi terhitung sebagai anggota dan tidak menerima pembagian SHU.
                 </p>
             @endif

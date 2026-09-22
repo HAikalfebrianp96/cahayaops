@@ -220,9 +220,13 @@ class PembatalanTransaksiTest extends TestCase
             'tanggal' => '2026-09-01', 'nominal' => 100000, 'sumber' => 'Donatur A',
         ]);
 
+        // Payloadnya lengkap, persis seperti yang dikirim form perbaikan:
+        // 'sumber' ikut karena ia memang bagian dari catatannya, dan sejak
+        // ada halaman editnya kolom itu ikut bisa dibetulkan.
         $this->actingAs($this->admin)
             ->put(route('koperasi.dana-sukarela.perbarui', ['jenis' => 'masuk', 'id' => $dana->id]), [
-                'tanggal' => '2026-09-02', 'nominal' => 150000, 'keterangan' => 'Nominal diperbaiki',
+                'tanggal' => '2026-09-02', 'nominal' => 150000,
+                'sumber' => 'Donatur A', 'keterangan' => 'Nominal diperbaiki',
             ])
             ->assertSessionHasNoErrors();
 
@@ -230,6 +234,7 @@ class PembatalanTransaksiTest extends TestCase
 
         $this->assertEqualsWithDelta(150000, (float) $segar->nominal, 0.01);
         $this->assertSame('2026-09-02', $segar->tanggal->format('Y-m-d'));
+        $this->assertSame('Donatur A', $segar->sumber);
 
         // Perbaikannya berjejak, lengkap dengan nilai sebelum -> sesudah.
         $log = ActivityLog::where('action', 'dana_sukarela_updated')->where('model_id', $dana->id)->first();
@@ -324,14 +329,29 @@ class PembatalanTransaksiTest extends TestCase
         $this->assertEqualsWithDelta(100000, (float) $dana->fresh()->nominal, 0.01);
     }
 
-    /** TIDAK ADA jalur hapus untuk dana. */
-    public function test_tidak_ada_route_hapus_dana(): void
+    /**
+     * JALUR HAPUS ADA, TAPI HANYA SETELAH PEMBATALAN.
+     *
+     * Test ini dulu berbunyi "tidak ada route hapus dana". Aturannya berubah:
+     * baris percobaan yang sudah dibatalkan boleh dibuang. Yang dijaga di
+     * sini adalah syaratnya — baris yang MASIH BERLAKU tetap ditolak, untuk
+     * keempat arus dana.
+     *
+     * Dengan begitu alasan pembatalan selalu sudah tercatat di Activity Log
+     * sebelum barisnya lenyap, dan pihak yang menitipkan dananya tetap bisa
+     * diberi keterangan.
+     */
+    public function test_dana_yang_masih_berlaku_tetap_tidak_bisa_dihapus(): void
     {
-        foreach (['koperasi.dana-sukarela.destroy', 'koperasi.dana-hibah.destroy'] as $rute) {
-            $this->assertFalse(
-                Route::has($rute),
-                "Catatan dana tidak boleh punya jalur hapus: $rute",
-            );
-        }
+        $dana = \App\Models\DanaSukarelaMasuk::create([
+            'tanggal' => '2026-09-01', 'nominal' => 100000,
+            'status' => 'Tercatat', 'sumber' => 'Celengan',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->delete(route('koperasi.dana-sukarela.destroy', ['jenis' => 'masuk', 'id' => $dana->id]))
+            ->assertSessionHasErrors('hapus');
+
+        $this->assertSame(1, \App\Models\DanaSukarelaMasuk::where('id', $dana->id)->count());
     }
 }

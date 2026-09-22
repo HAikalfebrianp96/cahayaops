@@ -107,7 +107,7 @@ class LaporanKoperasiController extends Controller
             // Bagian dari dua angka di atas yang pemiliknya SUDAH TIDAK LAGI
             // menjadi anggota.
             //
-            // Angkanya tidak dikurangi: mengarsipkan anggota tidak
+            // Angkanya tidak dikurangi: menonaktifkan anggota tidak
             // mengembalikan uangnya, jadi koperasi memang masih memegang dana
             // itu dan laporan yang menghilangkannya justru salah ke arah
             // sebaliknya.
@@ -116,8 +116,8 @@ class LaporanKoperasiController extends Controller
             // yang sama bisa berbunyi "Total Anggota 1" berdampingan dengan
             // simpanan yang tak satu pun miliknya — dan halaman SHU menolak
             // membagi jasa modalnya dengan alasan yang tidak terlihat di sini.
-            'simpananTerarsip' => (float) MemberSaving::berlaku()
-                ->milikAnggotaTerarsip()
+            'simpananAnggotaTidakAktif' => (float) MemberSaving::berlaku()
+                ->milikAnggotaTidakAktif()
                 ->whereIn('jenis_simpanan', ['Simpanan Pokok', 'Simpanan Wajib'])
                 ->sum('nominal'),
             'saldoDanaSosial' => (float) DanaSukarelaMasuk::berlaku()->sum('nominal') - (float) DanaSukarelaKeluar::berlaku()->sum('nominal'),
@@ -262,9 +262,18 @@ class LaporanKoperasiController extends Controller
         }
 
         $rows = $query->orderByDesc('tanggal')->get()->map(function (SalesTransaction $trx) {
-            $adaTitipJual = $trx->items->contains(fn ($i) => (float) $i->fee_rate > 0 || (float) $i->hak_mitra_amount > 0);
-            $adaMilikKoperasi = $trx->items->contains(fn ($i) => (float) $i->fee_rate <= 0 && (float) $i->hak_mitra_amount <= 0);
-            $modelUsaha = $adaTitipJual && $adaMilikKoperasi ? 'Campuran' : ($adaTitipJual ? 'Titip Jual' : 'Milik Koperasi');
+            // "Titip Jual" sudah bukan jenis transaksi — yang tersisa hanya
+            // keterangan apakah ada hak mitra pada transaksi itu. Kolomnya
+            // dipertahankan supaya laporan lama tetap punya penjelas, tapi
+            // istilahnya mengikuti konsep yang sekarang.
+            //
+            // fee_rate masih ikut dibaca karena transaksi LAMA mungkin
+            // menyimpannya; transaksi baru selalu 0.
+            $adaHakMitra = $trx->items->contains(fn ($i) => (float) $i->fee_rate > 0 || (float) $i->hak_mitra_amount > 0);
+            $adaTanpaMitra = $trx->items->contains(fn ($i) => (float) $i->fee_rate <= 0 && (float) $i->hak_mitra_amount <= 0);
+            $modelUsaha = $adaHakMitra && $adaTanpaMitra
+                ? 'Sebagian ada Hak Mitra'
+                : ($adaHakMitra ? 'Ada Hak Mitra' : 'Tanpa Hak Mitra');
 
             $fee = (float) $trx->items->sum(fn ($i) => $i->fee_amount ?? ($i->subtotal * (float) $i->fee_rate / 100));
             $hakMitra = (float) $trx->items->sum(fn ($i) => (float) $i->hak_mitra_amount);

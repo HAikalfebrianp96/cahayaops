@@ -53,10 +53,15 @@
                                      perhitungan lama berarti menulis ulang fakta yang
                                      sudah dipakai mengambil keputusan harga. Koreksinya
                                      dengan membuat perhitungan baru. Yang tersedia di
-                                     sini adalah membuang perhitungan yang salah input —
-                                     tetap tanpa menghilangkan barisnya. --}}
+                                     sini membuang perhitungan yang salah input — dan
+                                     sejak konsep Arsip dilepas, benar-benar
+                                     membuangnya. Kalimat konfirmasinya karena itu
+                                     menyebut jumlah baris bahan yang ikut hilang: satu
+                                     perhitungan memuat 4 sampai 14 komponen, dan orang
+                                     yang melihat satu baris di tabel tidak punya cara
+                                     menduganya. --}}
                                 <form method="POST" action="{{ route('hpp.destroy', $c) }}" class="inline"
-                                      onsubmit="return confirm('Hapus Permanen?\n\nData yang dihapus tidak dapat dipulihkan. Pastikan data ini memang sudah tidak diperlukan.');">
+                                      onsubmit="return confirm('Hapus Permanen?\n\nPerhitungan {{ $c->nama_produk }} beserta {{ $c->components_count }} baris rincian bahannya akan dihapus dan tidak dapat dipulihkan.\n\nPastikan perhitungan ini memang sudah tidak diperlukan.');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="text-status-danger hover:underline text-xs">Hapus Permanen</button>

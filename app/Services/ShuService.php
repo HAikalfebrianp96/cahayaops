@@ -64,7 +64,16 @@ class ShuService
     {
         $dasar = [];
 
-        foreach (KoperasiMember::pluck('id') as $id) {
+        // HANYA anggota berstatus Aktif. Aturannya sendiri tidak baru —
+        // peringatan di bawah sudah lama menyatakan bahwa yang bukan lagi
+        // anggota tidak menerima pembagian SHU — yang baru adalah PENANDANYA:
+        // dulu "sudah diarsipkan", sekarang kolom status.
+        //
+        // Tanpa baris ini penukaran penanda akan membalik aturannya diam-diam:
+        // anggota yang dulu terarsip (dan karena itu tidak menerima apa pun)
+        // akan kembali ikut dibagi begitu ia dikeluarkan dari arsip dan
+        // ditandai tidak aktif.
+        foreach (KoperasiMember::where('status', 'Aktif')->pluck('id') as $id) {
             $dasar[$id] = ['simpanan' => 0, 'transaksi' => 0];
         }
 
@@ -306,7 +315,7 @@ class ShuService
             //
             //   1. memang belum ada yang mencatat simpanan; atau
             //   2. simpanannya ADA, tapi seluruhnya milik anggota yang sudah
-            //      diarsipkan — dan anggota terarsip memang tidak menerima
+            //      diarsipkan — dan anggota tidak aktif memang tidak menerima
             //      pembagian SHU.
             //
             // Keduanya dulu memunculkan kalimat yang sama: "belum ada
@@ -315,18 +324,18 @@ class ShuService
             // mencari-cari untuk mencatat simpanan yang sebenarnya sudah ada.
             //
             // Terjadi sungguhan pada data berjalan: Rp160.000 simpanan pokok
-            // & wajib tercatat, seluruhnya milik dua anggota terarsip.
+            // & wajib tercatat, seluruhnya milik dua anggota tidak aktif.
             // ============================================================
-            $simpananTerarsip = MemberSaving::berlaku()
+            $simpananAnggotaTidakAktif = MemberSaving::berlaku()
                 ->whereIn('jenis_simpanan', ['Simpanan Pokok', 'Simpanan Wajib'])
                 ->whereYear('tanggal', '<=', $periode->tahun)
-                ->milikAnggotaTerarsip()
+                ->milikAnggotaTidakAktif()
                 ->sum('nominal');
 
-            $peringatan[] = $simpananTerarsip > 0
-                ? 'Simpanan pokok/wajib yang tercatat seluruhnya milik anggota yang sudah diarsipkan '
-                    . '(total Rp' . number_format((float) $simpananTerarsip, 0, ',', '.') . '), '
-                    . 'dan anggota terarsip tidak menerima pembagian SHU. '
+            $peringatan[] = $simpananAnggotaTidakAktif > 0
+                ? 'Simpanan pokok/wajib yang tercatat seluruhnya milik anggota yang statusnya tidak lagi aktif '
+                    . '(total Rp' . number_format((float) $simpananAnggotaTidakAktif, 0, ',', '.') . '), '
+                    . 'dan anggota tidak aktif tidak menerima pembagian SHU. '
                     . 'Komponen jasa modal karena itu tidak dapat dibagikan ke anggota mana pun.'
                 : 'Belum ada simpanan pokok/wajib tercatat sampai tahun ini, '
                     . 'jadi komponen jasa modal tidak dapat dibagikan ke anggota mana pun.';

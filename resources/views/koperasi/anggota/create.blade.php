@@ -12,12 +12,6 @@
 
 <div class="max-w-2xl space-y-5">
 
-    @if (session('error'))
-        <div class="bg-status-danger/10 border border-status-danger/30 text-status-danger text-sm rounded-xl px-4 py-3">
-            {{ session('error') }}
-        </div>
-    @endif
-
     {{-- ============================================================
          LANGKAH 1 — PILIH CARA MENAMBAH ANGGOTA
          ============================================================ --}}

@@ -100,10 +100,17 @@
     </dl>
 
     <div class="mt-6 flex gap-2">
-        <a href="{{ route('omzet.edit', $report) }}"
-           class="bg-cahaya-primary text-white text-sm font-medium px-5 py-2.5 rounded-md hover:bg-cahaya-primary/90 transition">
-            Edit
-        </a>
+        {{-- Penjaganya SAMA dengan yang dipakai daftar omzet (OmzetReportPolicy).
+             Daftarnya sudah membungkus Edit dengan @can sejak awal; halaman
+             detail ini tidak — jadi Pimpinan, yang boleh membuka halaman ini
+             tapi read-only, melihat tombol Edit yang begitu diklik menolak
+             dengan 403. --}}
+        @can('update', $report)
+            <a href="{{ route('omzet.edit', $report) }}"
+               class="bg-cahaya-primary text-white text-sm font-medium px-5 py-2.5 rounded-md hover:bg-cahaya-primary/90 transition">
+                Edit
+            </a>
+        @endcan
         <a href="{{ route('participants.show', $report->participant) }}"
            class="text-sm text-cahaya-secondary px-5 py-2.5 hover:underline">
             Lihat Detail Peserta

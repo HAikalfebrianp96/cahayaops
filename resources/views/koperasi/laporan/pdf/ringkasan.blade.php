@@ -73,12 +73,12 @@
         </tr>
     </table>
 
-    @if (($simpananTerarsip ?? 0) > 0)
+    @if (($simpananAnggotaTidakAktif ?? 0) > 0)
         {{-- Keterangan ini WAJIB ikut tercetak. Lembar inilah yang dibawa ke
              Rapat Anggota; kalau angkanya berdiri tanpa penjelasan, peserta
              rapat akan membacanya sebagai simpanan anggota yang masih ada. --}}
         <p style="font-size: 9px; color: #555; margin-top: 6px;">
-            Termasuk <strong>{{ rupiah($simpananTerarsip) }}</strong> simpanan pokok/wajib milik anggota
+            Termasuk <strong>{{ rupiah($simpananAnggotaTidakAktif) }}</strong> simpanan pokok/wajib milik anggota
             yang sudah diarsipkan. Dananya masih dipegang koperasi, tetapi pemiliknya tidak lagi terhitung
             sebagai anggota dan tidak menerima pembagian SHU.
         </p>

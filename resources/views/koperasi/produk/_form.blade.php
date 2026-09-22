@@ -1,10 +1,25 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
-        <label class="block text-sm font-medium text-text-main mb-1">Kode</label>
-        <input type="text" name="kode" value="{{ old('kode', $produk->kode ?? '') }}"
-               placeholder="Contoh: KP-001"
-               class="w-full rounded-xl border border-border-soft bg-white text-text-main px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-status-info/30">
-        @error('kode') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
+        {{-- KODE DIBUAT SISTEM, tidak diketik petugas.
+
+             Ditampilkan sebagai keterangan, bukan isian: kode adalah
+             identitas produk yang ikut tercetak di nota. Kalau ia bisa
+             diketik, dua produk berbeda bisa memakai kode yang sama —
+             dan nota lama berhenti bisa dipercaya.
+
+             Pada Edit kodenya ikut tampil apa adanya dan tidak berubah. --}}
+        <label class="block text-sm font-medium text-text-main mb-1">Kode Produk</label>
+        @if (isset($produk) && $produk->kode)
+            <p class="w-full rounded-xl border border-border-soft bg-surface-bg text-text-main px-3 py-2.5 text-sm font-medium">
+                {{ $produk->kode }}
+            </p>
+            <p class="text-xs text-text-secondary mt-1">Kode tidak berubah — ia identitas produk ini.</p>
+        @else
+            <p class="w-full rounded-xl border border-border-soft bg-surface-bg text-text-secondary px-3 py-2.5 text-sm italic">
+                Dibuat otomatis oleh sistem
+            </p>
+            <p class="text-xs text-text-secondary mt-1">Contoh: {{ \App\Models\ProductService::kodeBerikutnya() }}</p>
+        @endif
     </div>
 
     <div>

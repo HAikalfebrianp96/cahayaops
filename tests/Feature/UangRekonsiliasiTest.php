@@ -147,29 +147,48 @@ class UangRekonsiliasiTest extends TestCase
      * Persentase sengaja dipilih yang tidak habis dibagi: 33,33% dan 7,77%
      * dari angka ganjil adalah bentuk yang paling mungkin memunculkan sisa.
      */
-    public function test_fee_dan_hak_mitra_selalu_berjumlah_subtotal(): void
+    /**
+     * Hak mitra dihitung PERSIS, tanpa rupiah yang hilang di pembulatan.
+     *
+     * Test ini dulu menjaga pembagian "fee koperasi + hak mitra = subtotal"
+     * pada persentase canggung (33,33%, 7,77%, 0,01%). Pembagian itu sudah
+     * tidak ada — hak mitra kini diisi langsung per unit.
+     *
+     * Yang dijaga tetap sama: aritmetika uangnya harus tepat. Nilai per unit
+     * berkoma dikalikan qty tidak boleh menghasilkan selisih yang tidak bisa
+     * dipertanggungjawabkan, dan tidak boleh menggeser profit.
+     */
+    public function test_hak_mitra_dihitung_persis_tanpa_rupiah_yang_hilang(): void
     {
-        foreach ([33.33, 7.77, 12.5, 66.67, 100, 0.01] as $rate) {
+        foreach ([12_000, 3_333.33, 7.77, 0.01, 1_250.5] as $perUnit) {
             $trx = $this->simpan([
                 'items_master' => [[
                     'product_id' => $this->produk->id,
                     'qty' => 3,
                     'harga_jual' => 33333,
-                    'tipe_kepemilikan' => 'Titip Jual',
-                    'fee_rate' => $rate,
+                    'hak_mitra_per_unit' => $perUnit,
                 ]],
             ]);
 
             $item = $trx->items->first();
 
             $this->assertSame(
-                (float) $item->subtotal,
-                (float) $item->fee_amount + (float) $item->hak_mitra_amount,
-                "Fee {$rate}% + hak mitra tidak berjumlah subtotal."
+                round(3 * $perUnit, 2),
+                (float) $item->hak_mitra_amount,
+                "Hak mitra Rp{$perUnit}/unit x 3 tidak dihitung persis."
             );
 
-            $this->assertGreaterThanOrEqual(0, (float) $item->hak_mitra_amount);
-            $this->assertGreaterThanOrEqual(0, (float) $item->fee_amount);
+            // Tidak ada lagi persentase fee yang ikut bermain.
+            $this->assertSame(0.0, (float) $item->fee_amount);
+            $this->assertSame(0.0, (float) $item->fee_rate);
+
+            // Dan hak mitra TIDAK menggeser profit: profit tetap lahir dari
+            // subtotal dikurangi modal, apa pun nilai hak mitranya.
+            $this->assertSame(
+                (float) $trx->items->sum('subtotal') - $trx->totalHpp(),
+                $trx->estimasiProfit(),
+                'Hak mitra tidak boleh ikut mengurangi profit.'
+            );
         }
     }
 

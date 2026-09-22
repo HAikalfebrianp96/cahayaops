@@ -4,7 +4,12 @@ namespace App\Services;
 
 use App\Models\ActivityLog;
 use App\Models\BusinessUnit;
+use App\Models\Concerns\BisaDibatalkan;
 use App\Models\Customer;
+use App\Models\DanaHibahKeluar;
+use App\Models\DanaHibahMasuk;
+use App\Models\DanaSukarelaKeluar;
+use App\Models\DanaSukarelaMasuk;
 use App\Models\HppCalculation;
 use App\Models\ImpactProgram;
 use App\Models\KoperasiMember;
@@ -131,6 +136,10 @@ class PenghapusanPermanenService
             'penjualan-batal' => SalesTransaction::class,
             'pengeluaran-batal' => Pengeluaran::class,
             'simpanan-batal' => MemberSaving::class,
+            'dana-sukarela-masuk-batal' => DanaSukarelaMasuk::class,
+            'dana-sukarela-keluar-batal' => DanaSukarelaKeluar::class,
+            'dana-hibah-masuk-batal' => DanaHibahMasuk::class,
+            'dana-hibah-keluar-batal' => DanaHibahKeluar::class,
         ];
     }
 
@@ -148,14 +157,8 @@ class PenghapusanPermanenService
         // konsep arsip — pembatalan adalah koreksi akuntansi yang berdiri
         // sendiri, dan tetap jadi syarat supaya angka laporan yang sudah
         // terbit tidak berubah diam-diam.
-        if ($model instanceof SalesTransaction || $model instanceof Pengeluaran || $model instanceof MemberSaving) {
-            $alasanUang = $this->tahanCatatanUang($model);
-
-            if ($alasanUang !== null) {
-                return $alasanUang;
-            }
-
-            return null;
+        if ($this->catatanUang($model)) {
+            return $this->tahanCatatanUang($model);
         }
 
         // Tanggungan histori, per jenis data. Data aktif kini boleh langsung
@@ -309,6 +312,21 @@ class PenghapusanPermanenService
      * menghapusnya diam-diam akan mengubah angka yang sudah dilaporkan
      * tanpa menyisakan jejak apa pun.
      */
+    /**
+     * Catatan uang tidak memakai SoftDeletes: barisnya berpindah status
+     * menjadi "Dibatalkan". Keempat arus dana dikenali lewat trait
+     * [BisaDibatalkan] — bukan lewat daftar nama kelas — supaya jenis dana
+     * yang ditambahkan kelak ikut terjaga tanpa ada yang perlu ingat
+     * menyunting daftar di sini.
+     */
+    private function catatanUang(Model $model): bool
+    {
+        return $model instanceof SalesTransaction
+            || $model instanceof Pengeluaran
+            || $model instanceof MemberSaving
+            || in_array(BisaDibatalkan::class, class_uses_recursive($model), true);
+    }
+
     private function tahanCatatanUang($model): ?string
     {
         if ($model instanceof SalesTransaction) {
@@ -336,6 +354,16 @@ class PenghapusanPermanenService
             }
 
             return null;
+        }
+
+        // Dana Sosial & Dana Hibah — titipan pihak ketiga, syaratnya sama:
+        // dibatalkan dulu beserta alasannya. Menghapus baris yang masih
+        // berlaku membuat saldo berubah tanpa ada yang bisa menjelaskan
+        // sebabnya kepada pihak yang menitipkan dananya.
+        if (in_array(BisaDibatalkan::class, class_uses_recursive($model), true)) {
+            return $model->dibatalkan()
+                ? null
+                : 'Catatan dana ini masih berlaku. Batalkan dulu (beserta alasannya), baru bisa dihapus permanen.';
         }
 
         return null;

@@ -77,12 +77,21 @@
                 @endif
                 @if ($bolehHapusPeserta)
                     <form method="POST" action="{{ route('participants.destroy', $participant) }}"
-                          onsubmit="return confirm('Pindahkan peserta ini ke arsip? Data tidak hilang dan bisa dipulihkan.');">
+                          onsubmit="return confirm('Hapus Permanen?
+
+Peserta ini beserta identitasnya akan dihapus dan TIDAK dapat dipulihkan.
+
+Riwayat pendampingan, omzet, pelatihan, dan legalitasnya menahan penghapusan — kalau masih ada, sistem akan menolak dan menyebutkan apa yang menahannya.');">
                         @csrf
                         @method('DELETE')
+                        {{-- Labelnya menyebut APA yang dihapus. Halaman ini juga
+                             memuat tombol "Hapus Permanen" milik omzet, pendampingan,
+                             dan pelatihan — tanpa kata "Peserta", tombol teratas ini
+                             tidak bisa dibedakan dari tombol yang cuma membuang satu
+                             baris catatan. --}}
                         <button type="submit"
                                 class="text-[13px] font-medium text-status-danger border border-status-danger/30 px-4 py-2 rounded-lg hover:bg-status-danger/5 transition">
-                            Hapus
+                            Hapus Peserta Permanen
                         </button>
                     </form>
                 @endif

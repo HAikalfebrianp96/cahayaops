@@ -70,15 +70,24 @@ class LabaRugiController extends Controller
         $totalKeluar = (float) DanaSukarelaKeluar::berlaku()->sum('nominal');
         $saldo = $totalMasuk - $totalKeluar;
 
-        $riwayatMasuk = DanaSukarelaMasuk::berlaku()->orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
-        $riwayatKeluar = DanaSukarelaKeluar::berlaku()->orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
+        // RIWAYAT memuat baris yang sudah DIBATALKAN juga — berbeda dari
+        // saldo di atas, yang memang hanya menjumlahkan yang berlaku.
+        //
+        // Sebelumnya riwayat ikut memakai berlaku(), sehingga baris yang
+        // dibatalkan lenyap dari halaman: alasan pembatalannya tidak bisa
+        // dibaca siapa pun, dan barisnya tidak bisa ditindaklanjuti lagi.
+        // Bladenya sendiri sudah sejak awal punya tampilan untuk baris
+        // dibatalkan (diredupkan, berlabel "Dibatalkan") — tampilan yang
+        // tidak pernah terpakai.
+        $riwayatMasuk = DanaSukarelaMasuk::orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
+        $riwayatKeluar = DanaSukarelaKeluar::orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
 
         $totalHibahMasuk = (float) DanaHibahMasuk::berlaku()->sum('nominal');
         $totalHibahKeluar = (float) DanaHibahKeluar::berlaku()->sum('nominal');
         $saldoHibah = $totalHibahMasuk - $totalHibahKeluar;
 
-        $riwayatHibahMasuk = DanaHibahMasuk::berlaku()->orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
-        $riwayatHibahKeluar = DanaHibahKeluar::berlaku()->orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
+        $riwayatHibahMasuk = DanaHibahMasuk::orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
+        $riwayatHibahKeluar = DanaHibahKeluar::orderByDesc('tanggal')->orderByDesc('id')->limit(20)->get();
 
         // ==========================================================
         // BUKU 2 — DANA ANGGOTA (Simpanan Pokok + Wajib) — read-only.
@@ -88,10 +97,10 @@ class LabaRugiController extends Controller
         $totalSimpananWajib = (float) MemberSaving::berlaku()->where('jenis_simpanan', 'Simpanan Wajib')->sum('nominal');
 
         // Bagian dari dua angka di atas yang pemiliknya sudah tidak lagi
-        // menjadi anggota. Angkanya TIDAK dikurangi — mengarsipkan anggota
+        // menjadi anggota. Angkanya TIDAK dikurangi — menonaktifkan anggota
         // tidak mengembalikan uangnya — yang ditambahkan hanya keterangannya.
-        $simpananTerarsip = (float) MemberSaving::berlaku()
-            ->milikAnggotaTerarsip()
+        $simpananAnggotaTidakAktif = (float) MemberSaving::berlaku()
+            ->milikAnggotaTidakAktif()
             ->whereIn('jenis_simpanan', ['Simpanan Pokok', 'Simpanan Wajib'])
             ->sum('nominal');
 
@@ -105,7 +114,7 @@ class LabaRugiController extends Controller
             'totalHibahMasuk' => $totalHibahMasuk, 'totalHibahKeluar' => $totalHibahKeluar, 'saldoHibah' => $saldoHibah,
             'riwayatHibahMasuk' => $riwayatHibahMasuk, 'riwayatHibahKeluar' => $riwayatHibahKeluar,
             'totalSimpananPokok' => $totalSimpananPokok, 'totalSimpananWajib' => $totalSimpananWajib,
-            'simpananTerarsip' => $simpananTerarsip,
+            'simpananAnggotaTidakAktif' => $simpananAnggotaTidakAktif,
             'filters' => $request->only(['tahun', 'bulan', 'unit_id']),
         ]);
     }

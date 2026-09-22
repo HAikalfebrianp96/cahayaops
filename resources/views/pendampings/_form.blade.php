@@ -45,12 +45,6 @@
                 <p class="text-xs text-amber-700">Password ini hanya ditampilkan sekarang. Simpan/berikan ke Pendamping — password lama sudah tidak berlaku.</p>
             </div>
         @endif
-        @if (session('error'))
-            <div class="mb-3 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {{ session('error') }}
-            </div>
-        @endif
-
         <p class="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 inline-block">
             🟢 Akun Login: Aktif — <span class="font-medium">{{ $pendamping->user->email }}</span>
         </p>

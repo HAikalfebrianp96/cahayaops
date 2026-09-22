@@ -146,22 +146,29 @@
         <h3 class="text-sm font-semibold text-text-main mb-1">Buku 2 — Dana Anggota</h3>
         <p class="text-xs text-text-secondary mb-4">Simpanan Pokok & Wajib — bukan omzet, bukan laba, bukan pendapatan usaha.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {{-- Setiap angka ringkasan menunjuk ke transaksi yang
+                 membentuknya. Angka ini dijumlahkan dari entri simpanan
+                 masing-masing anggota, bukan disimpan di kolom mana pun —
+                 jadi "Lihat Riwayat" bukan sekadar navigasi, melainkan cara
+                 memeriksa angkanya sampai ke sumbernya. --}}
             <div class="border border-border-soft rounded-xl p-4">
                 <p class="text-xs text-text-secondary mb-1">Simpanan Pokok</p>
                 <p class="text-xl font-bold text-cahaya-primary">{{ rupiah($totalSimpananPokok) }}</p>
+                <a href="{{ route('koperasi.laporan.simpanan') }}" class="text-xs text-status-info hover:underline mt-1 inline-block">Lihat Riwayat</a>
             </div>
             <div class="border border-border-soft rounded-xl p-4">
                 <p class="text-xs text-text-secondary mb-1">Simpanan Wajib</p>
                 <p class="text-xl font-bold text-cahaya-primary">{{ rupiah($totalSimpananWajib) }}</p>
+                <a href="{{ route('koperasi.laporan.simpanan') }}" class="text-xs text-status-info hover:underline mt-1 inline-block">Lihat Riwayat</a>
             </div>
-            @if (($simpananTerarsip ?? 0) > 0)
-                {{-- Keterangan, bukan pengurangan angka: mengarsipkan anggota
+            @if (($simpananAnggotaTidakAktif ?? 0) > 0)
+                {{-- Keterangan, bukan pengurangan angka: menonaktifkan anggota
                      tidak mengembalikan uangnya, jadi koperasi memang masih
                      memegang dana ini. Yang keliru adalah menampilkannya
                      tanpa keterangan. --}}
                 <div class="sm:col-span-2 lg:col-span-3 text-xs text-text-secondary">
-                    Termasuk <span class="font-semibold text-text-main">{{ rupiah($simpananTerarsip) }}</span>
-                    milik anggota yang sudah diarsipkan. Dananya masih dipegang koperasi, tetapi pemiliknya
+                    Termasuk <span class="font-semibold text-text-main">{{ rupiah($simpananAnggotaTidakAktif) }}</span>
+                    milik anggota yang statusnya tidak lagi aktif. Dananya masih dipegang koperasi, tetapi pemiliknya
                     tidak lagi terhitung sebagai anggota dan tidak menerima pembagian SHU.
                 </div>
             @endif
@@ -179,15 +186,23 @@
             <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-5">
                 <p class="text-xs text-text-secondary mb-1">Saldo Dana Sukarela</p>
                 <p class="text-xl font-bold text-cahaya-accent">{{ rupiah($saldo) }}</p>
+                <p class="text-[11px] text-text-secondary mt-1">
+                    {{ rupiah($totalMasuk) }} masuk &minus; {{ rupiah($totalKeluar) }} keluar.
+                    <a href="#riwayat-dana-sukarela" class="text-status-info hover:underline">Lihat Riwayat</a>
+                </p>
             </div>
             <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-5">
                 <p class="text-xs text-text-secondary mb-1">Saldo Dana Hibah</p>
                 <p class="text-xl font-bold text-cahaya-accent">{{ rupiah($saldoHibah) }}</p>
+                <p class="text-[11px] text-text-secondary mt-1">
+                    {{ rupiah($totalHibahMasuk) }} masuk &minus; {{ rupiah($totalHibahKeluar) }} keluar.
+                    <a href="#riwayat-dana-hibah" class="text-status-info hover:underline">Lihat Riwayat</a>
+                </p>
             </div>
         </div>
 
         <div>
-            <h4 class="text-sm font-semibold text-text-main mb-2">Dana Sukarela Sosial</h4>
+            <h4 id="riwayat-dana-sukarela" class="text-sm font-semibold text-text-main mb-2 scroll-mt-24">Dana Sukarela Sosial</h4>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
                     <h5 class="text-sm font-semibold text-text-main mb-4">Catat Pemasukan</h5>
@@ -215,7 +230,7 @@
                     <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
                     <div class="overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Sumber</th><th class="py-1.5">Nominal</th><th class="py-1.5">Aksi</th><th class="py-1.5">Aksi</th><th class="py-1.5">Aksi</th><th class="py-1.5">Aksi</th></tr></thead>
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Sumber</th><th class="py-1.5">Nominal</th><th class="py-1.5">Aksi</th></tr></thead>
                             <tbody>
                                 @forelse ($riwayatMasuk as $r)
                                     <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
@@ -223,20 +238,35 @@
                                         <td class="py-1.5 text-text-main">{{ $r->sumber }}</td>
                                         <td class="py-1.5 font-medium text-text-main">{{ rupiah($r->nominal) }}</td>
                                         <td class="py-1.5 whitespace-nowrap">
-                                            @if ($r->dibatalkan())
+                                            @if (! auth()->user()->isAdmin())
+                                                {{-- Dana titipan pihak ketiga: hanya Admin yang mengubahnya. --}}
+                                                @if ($r->dibatalkan())
+                                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                                @else
+                                                    <span class="text-text-secondary">&mdash;</span>
+                                                @endif
+                                            @elseif ($r->dibatalkan())
+                                                {{-- Sudah dibatalkan: alasannya SUDAH tercatat di Activity
+                                                     Log, dan barisnya sudah berhenti dihitung ke saldo. Baru
+                                                     di titik inilah Hapus Permanen terbuka — jadi membuang
+                                                     baris selalu keputusan KEDUA, diambil pada waktu yang
+                                                     berbeda dari pembatalannya. --}}
                                                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
-                                            @elseif (auth()->user()->isAdmin())
-                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
-                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
-                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
-                                                <form method="POST" action="{{ route('koperasi.dana-sukarela.batalkan', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="inline"
-                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                <form method="POST" action="{{ route('koperasi.dana-sukarela.destroy', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="inline ml-2"
+                                                      onsubmit="return confirm('Hapus Permanen?
+
+Data yang dihapus tidak dapat dipulihkan.');">
                                                     @csrf
-                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
-                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-status-danger hover:underline">Hapus Permanen</button>
                                                 </form>
                                             @else
-                                                <span class="text-text-secondary">—</span>
+                                                {{-- Menuju halaman perbaikan, yang juga memuat Batalkan
+                                                     beserta isian alasannya. Tombol Batalkan sekali-klik yang
+                                                     dulu ada di sini mengirim alasan kalengan "Dibatalkan
+                                                     lewat halaman Keuangan" — kalimat yang tidak menjelaskan
+                                                     apa pun kepada pihak yang menitipkan dananya. --}}
+                                                <a href="{{ route('koperasi.dana-sukarela.edit', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="text-status-info hover:underline">Perbaiki</a>
                                             @endif
                                         </td>
                                     </tr>
@@ -274,7 +304,7 @@
                     <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
                     <div class="overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Keperluan</th><th class="py-1.5">Nominal</th></tr></thead>
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Keperluan</th><th class="py-1.5">Nominal</th><th class="py-1.5">Aksi</th></tr></thead>
                             <tbody>
                                 @forelse ($riwayatKeluar as $r)
                                     <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
@@ -282,20 +312,35 @@
                                         <td class="py-1.5 text-text-main">{{ $r->keperluan }}</td>
                                         <td class="py-1.5 font-medium text-status-danger">{{ rupiah($r->nominal) }}</td>
                                         <td class="py-1.5 whitespace-nowrap">
-                                            @if ($r->dibatalkan())
+                                            @if (! auth()->user()->isAdmin())
+                                                {{-- Dana titipan pihak ketiga: hanya Admin yang mengubahnya. --}}
+                                                @if ($r->dibatalkan())
+                                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                                @else
+                                                    <span class="text-text-secondary">&mdash;</span>
+                                                @endif
+                                            @elseif ($r->dibatalkan())
+                                                {{-- Sudah dibatalkan: alasannya SUDAH tercatat di Activity
+                                                     Log, dan barisnya sudah berhenti dihitung ke saldo. Baru
+                                                     di titik inilah Hapus Permanen terbuka — jadi membuang
+                                                     baris selalu keputusan KEDUA, diambil pada waktu yang
+                                                     berbeda dari pembatalannya. --}}
                                                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
-                                            @elseif (auth()->user()->isAdmin())
-                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
-                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
-                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
-                                                <form method="POST" action="{{ route('koperasi.dana-sukarela.batalkan', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="inline"
-                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                <form method="POST" action="{{ route('koperasi.dana-sukarela.destroy', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="inline ml-2"
+                                                      onsubmit="return confirm('Hapus Permanen?
+
+Data yang dihapus tidak dapat dipulihkan.');">
                                                     @csrf
-                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
-                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-status-danger hover:underline">Hapus Permanen</button>
                                                 </form>
                                             @else
-                                                <span class="text-text-secondary">—</span>
+                                                {{-- Menuju halaman perbaikan, yang juga memuat Batalkan
+                                                     beserta isian alasannya. Tombol Batalkan sekali-klik yang
+                                                     dulu ada di sini mengirim alasan kalengan "Dibatalkan
+                                                     lewat halaman Keuangan" — kalimat yang tidak menjelaskan
+                                                     apa pun kepada pihak yang menitipkan dananya. --}}
+                                                <a href="{{ route('koperasi.dana-sukarela.edit', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="text-status-info hover:underline">Perbaiki</a>
                                             @endif
                                         </td>
                                     </tr>
@@ -310,7 +355,7 @@
         </div>
 
         <div>
-            <h4 class="text-sm font-semibold text-text-main mb-2">Dana Hibah / Bantuan Modal Usaha</h4>
+            <h4 id="riwayat-dana-hibah" class="text-sm font-semibold text-text-main mb-2 scroll-mt-24">Dana Hibah / Bantuan Modal Usaha</h4>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
                     <h5 class="text-sm font-semibold text-text-main mb-4">Catat Pemasukan Hibah</h5>
@@ -342,7 +387,7 @@
                     <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
                     <div class="overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Sumber</th><th class="py-1.5">Peruntukan</th><th class="py-1.5">Nominal</th></tr></thead>
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Sumber</th><th class="py-1.5">Peruntukan</th><th class="py-1.5">Nominal</th><th class="py-1.5">Aksi</th></tr></thead>
                             <tbody>
                                 @forelse ($riwayatHibahMasuk as $r)
                                     <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
@@ -351,25 +396,40 @@
                                         <td class="py-1.5 text-text-secondary">{{ $r->peruntukan ?: '—' }}</td>
                                         <td class="py-1.5 font-medium text-text-main">{{ rupiah($r->nominal) }}</td>
                                         <td class="py-1.5 whitespace-nowrap">
-                                            @if ($r->dibatalkan())
+                                            @if (! auth()->user()->isAdmin())
+                                                {{-- Dana titipan pihak ketiga: hanya Admin yang mengubahnya. --}}
+                                                @if ($r->dibatalkan())
+                                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                                @else
+                                                    <span class="text-text-secondary">&mdash;</span>
+                                                @endif
+                                            @elseif ($r->dibatalkan())
+                                                {{-- Sudah dibatalkan: alasannya SUDAH tercatat di Activity
+                                                     Log, dan barisnya sudah berhenti dihitung ke saldo. Baru
+                                                     di titik inilah Hapus Permanen terbuka — jadi membuang
+                                                     baris selalu keputusan KEDUA, diambil pada waktu yang
+                                                     berbeda dari pembatalannya. --}}
                                                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
-                                            @elseif (auth()->user()->isAdmin())
-                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
-                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
-                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
-                                                <form method="POST" action="{{ route('koperasi.dana-hibah.batalkan', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="inline"
-                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                <form method="POST" action="{{ route('koperasi.dana-hibah.destroy', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="inline ml-2"
+                                                      onsubmit="return confirm('Hapus Permanen?
+
+Data yang dihapus tidak dapat dipulihkan.');">
                                                     @csrf
-                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
-                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-status-danger hover:underline">Hapus Permanen</button>
                                                 </form>
                                             @else
-                                                <span class="text-text-secondary">—</span>
+                                                {{-- Menuju halaman perbaikan, yang juga memuat Batalkan
+                                                     beserta isian alasannya. Tombol Batalkan sekali-klik yang
+                                                     dulu ada di sini mengirim alasan kalengan "Dibatalkan
+                                                     lewat halaman Keuangan" — kalimat yang tidak menjelaskan
+                                                     apa pun kepada pihak yang menitipkan dananya. --}}
+                                                <a href="{{ route('koperasi.dana-hibah.edit', ['jenis' => 'masuk', 'id' => $r->id]) }}" class="text-status-info hover:underline">Perbaiki</a>
                                             @endif
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4" class="py-4 text-center text-text-secondary italic">Belum ada pemasukan hibah.</td></tr>
+                                    <tr><td colspan="5" class="py-4 text-center text-text-secondary italic">Belum ada pemasukan hibah.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -402,7 +462,7 @@
                     <h6 class="text-xs font-semibold text-text-secondary mb-2">Riwayat Terbaru</h6>
                     <div class="overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Keperluan</th><th class="py-1.5">Nominal</th></tr></thead>
+                            <thead><tr class="text-left text-text-secondary border-b border-border-soft"><th class="py-1.5">Tanggal</th><th class="py-1.5">Keperluan</th><th class="py-1.5">Nominal</th><th class="py-1.5">Aksi</th></tr></thead>
                             <tbody>
                                 @forelse ($riwayatHibahKeluar as $r)
                                     <tr class="border-b border-border-soft last:border-0 {{ $r->dibatalkan() ? 'opacity-60' : '' }}">
@@ -410,20 +470,35 @@
                                         <td class="py-1.5 text-text-main">{{ $r->keperluan }}</td>
                                         <td class="py-1.5 font-medium text-status-danger">{{ rupiah($r->nominal) }}</td>
                                         <td class="py-1.5 whitespace-nowrap">
-                                            @if ($r->dibatalkan())
+                                            @if (! auth()->user()->isAdmin())
+                                                {{-- Dana titipan pihak ketiga: hanya Admin yang mengubahnya. --}}
+                                                @if ($r->dibatalkan())
+                                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
+                                                @else
+                                                    <span class="text-text-secondary">&mdash;</span>
+                                                @endif
+                                            @elseif ($r->dibatalkan())
+                                                {{-- Sudah dibatalkan: alasannya SUDAH tercatat di Activity
+                                                     Log, dan barisnya sudah berhenti dihitung ke saldo. Baru
+                                                     di titik inilah Hapus Permanen terbuka — jadi membuang
+                                                     baris selalu keputusan KEDUA, diambil pada waktu yang
+                                                     berbeda dari pembatalannya. --}}
                                                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-text-secondary">Dibatalkan</span>
-                                            @elseif (auth()->user()->isAdmin())
-                                                {{-- Dana adalah titipan pihak ketiga: TIDAK ADA tombol
-                                                     Hapus. Pembatalan membuat barisnya berhenti dihitung
-                                                     tanpa menghilangkannya, lengkap dengan alasannya. --}}
-                                                <form method="POST" action="{{ route('koperasi.dana-hibah.batalkan', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="inline"
-                                                      onsubmit="return confirm('Batalkan catatan dana ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                <form method="POST" action="{{ route('koperasi.dana-hibah.destroy', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="inline ml-2"
+                                                      onsubmit="return confirm('Hapus Permanen?
+
+Data yang dihapus tidak dapat dipulihkan.');">
                                                     @csrf
-                                                    <input type="hidden" name="alasan_pembatalan" value="Dibatalkan lewat halaman Keuangan">
-                                                    <button type="submit" class="text-status-danger hover:underline">Batalkan</button>
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-status-danger hover:underline">Hapus Permanen</button>
                                                 </form>
                                             @else
-                                                <span class="text-text-secondary">—</span>
+                                                {{-- Menuju halaman perbaikan, yang juga memuat Batalkan
+                                                     beserta isian alasannya. Tombol Batalkan sekali-klik yang
+                                                     dulu ada di sini mengirim alasan kalengan "Dibatalkan
+                                                     lewat halaman Keuangan" — kalimat yang tidak menjelaskan
+                                                     apa pun kepada pihak yang menitipkan dananya. --}}
+                                                <a href="{{ route('koperasi.dana-hibah.edit', ['jenis' => 'keluar', 'id' => $r->id]) }}" class="text-status-info hover:underline">Perbaiki</a>
                                             @endif
                                         </td>
                                     </tr>

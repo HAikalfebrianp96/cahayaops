@@ -273,7 +273,7 @@
                 </div>
             </div>
 
-            @if (($koperasiRingkasan['simpanan_terarsip'] ?? 0) > 0)
+            @if (($koperasiRingkasan['simpanan_anggota_tidak_aktif'] ?? 0) > 0)
                 {{-- Keterangan yang sama dengan halaman Keuangan dan Laporan
                      Koperasi. Angka simpanan yang berdiri tanpa penjelasan
                      akan dibaca Pimpinan sebagai modal anggota yang masih
@@ -285,7 +285,7 @@
                      kalimat — dan keterangan ini justru dijaga oleh test yang
                      mencarinya. --}}
                 <p class="text-xs text-text-secondary mt-3">
-                    Termasuk {{ rupiah($koperasiRingkasan['simpanan_terarsip']) }} milik anggota yang sudah diarsipkan
+                    Termasuk {{ rupiah($koperasiRingkasan['simpanan_anggota_tidak_aktif']) }} milik anggota yang statusnya tidak lagi aktif
                     — dananya masih dipegang koperasi, tetapi pemiliknya tidak lagi terhitung sebagai anggota.
                 </p>
             @endif

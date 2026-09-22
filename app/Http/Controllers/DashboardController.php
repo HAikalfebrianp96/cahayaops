@@ -565,17 +565,26 @@ class DashboardController extends Controller
             'total_simpanan' => (float) MemberSaving::berlaku()->sum('nominal'),
 
             // Bagian dari total di atas yang pemiliknya sudah tidak lagi
-            // menjadi anggota. TIDAK dikurangi — mengarsipkan anggota tidak
+            // menjadi anggota. TIDAK dikurangi — menonaktifkan anggota tidak
             // mengembalikan uangnya — hanya diterangkan, supaya "Total Anggota"
             // dan "Total Simpanan" di kartu yang sama tidak saling
             // bertentangan tanpa penjelasan.
-            'simpanan_terarsip' => (float) MemberSaving::berlaku()
-                ->milikAnggotaTerarsip()
+            'simpanan_anggota_tidak_aktif' => (float) MemberSaving::berlaku()
+                ->milikAnggotaTidakAktif()
                 ->sum('nominal'),
         ];
 
+        // koperasiMemberTermasukArsip, bukan relasi biasa.
+        //
+        // Panel ini merekam SETORAN — baris riwayat, bukan daftar anggota
+        // aktif. Nama penyetornya bagian dari fakta itu.
+        //
+        // Keadaan nyata di koperasi ini: keempat entri simpanannya milik
+        // anggota yang statusnya tidak lagi aktif, jadi panelnya menampilkan empat
+        // baris uang tanpa satu pun nama pemilik. Sejak halaman Arsip
+        // dilepas, tidak ada lagi tempat untuk mencari tahu siapa mereka.
         $simpananTerbaru = MemberSaving::berlaku()
-            ->with('koperasiMember.participant')
+            ->with('koperasiMemberTermasukArsip.participant')
             ->latest('tanggal')
             ->limit(8)
             ->get();
@@ -1082,8 +1091,8 @@ class DashboardController extends Controller
             // Bagian yang pemiliknya sudah tidak lagi menjadi anggota —
             // dasar perhitungan yang SAMA dengan halaman Keuangan dan
             // Laporan Koperasi. Angkanya tidak dikurangi, hanya diterangkan.
-            'simpanan_terarsip' => (float) MemberSaving::berlaku()
-                ->milikAnggotaTerarsip()
+            'simpanan_anggota_tidak_aktif' => (float) MemberSaving::berlaku()
+                ->milikAnggotaTidakAktif()
                 ->sum('nominal'),
         ];
 

@@ -112,7 +112,7 @@
         </div>
 
         {{-- TITIP JUAL — hanya tampil kalau ada itemnya --}}
-        @if ($transaksi->totalPenjualanTitipJual() > 0)
+        @if ($transaksi->totalHakMitra() > 0)
             <div class="border-t border-dashed border-border-soft mt-4 pt-4 max-w-xs ml-auto">
                 <p class="text-xs text-text-secondary mb-1">Titip Jual</p>
                 <div class="flex justify-between text-sm text-text-secondary"><span>Fee Koperasi</span><span class="font-medium text-cahaya-accent">{{ rupiah($transaksi->totalFeeKoperasi()) }}</span></div>
@@ -146,7 +146,18 @@
                 <a href="{{ route('koperasi.invoice.pdf', $transaksi) }}" class="border-2 border-cahaya-primary text-cahaya-primary text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-cahaya-primary/5 transition">
                     Download PDF
                 </a>
-            @elseif (auth()->user()->isAdmin())
+            {{-- bolehKelolaKoperasi(), BUKAN isAdmin().
+
+                 Kesalahan yang sama persis dengan tombol Edit di atas, dan
+                 komentarnya sudah memperingatkannya — tapi hanya tombol Edit
+                 yang ikut diperbaiki waktu itu.
+
+                 Akibatnya nyata: InvoiceController@store mengizinkan
+                 bolehKelolaKoperasi(), tetapi tombolnya hanya muncul untuk
+                 Admin. Tim Koperasi — yang memasukkan seluruh transaksi —
+                 tidak pernah melihat jalan membuat invoice, dan sembilan
+                 transaksi berjalan tanpa satu pun invoice terbit. --}}
+            @elseif (auth()->user()->bolehKelolaKoperasi())
                 <form method="POST" action="{{ route('koperasi.invoice.store', $transaksi) }}">
                     @csrf
                     <button type="submit" class="bg-cahaya-primary text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:opacity-90 transition">

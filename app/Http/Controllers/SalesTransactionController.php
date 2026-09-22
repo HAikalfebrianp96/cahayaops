@@ -21,7 +21,18 @@ class SalesTransactionController extends Controller
     {
         $this->authorizeView();
 
-        $query = SalesTransaction::with(['businessUnit', 'customer', 'invoice']);
+        // Relasi ...TermasukArsip, bukan relasi biasa.
+        //
+        // Sebelumnya daftar ini sengaja menampilkan "—" untuk unit atau
+        // pelanggan yang diarsipkan: tanda itu berarti "datanya ada, lihat di
+        // Arsip Data". Sejak halaman Arsip dilepas, tidak ada lagi tempat itu
+        // — dan "—" berubah arti menjadi "tidak ada datanya".
+        //
+        // Akibatnya nyata di koperasi ini: ketiga transaksinya menampilkan
+        // kolom pelanggan kosong, karena ketiga pelanggannya terarsip.
+        // Petugas harus membuka detail satu per satu hanya untuk tahu siapa
+        // yang membeli.
+        $query = SalesTransaction::with(['businessUnitTermasukArsip', 'customerTermasukArsip', 'invoice']);
 
         if ($request->filled('tanggal')) {
             $query->whereDate('tanggal', $request->date('tanggal'));
@@ -393,8 +404,7 @@ class SalesTransactionController extends Controller
             'items_master.*.harga_jual' => ['nullable', 'numeric', 'min:0'],
             'items_master.*.harga_modal' => ['nullable', 'numeric', 'min:0'],
             'items_master.*.diskon' => ['nullable', 'numeric', 'min:0'],
-            'items_master.*.tipe_kepemilikan' => ['nullable', Rule::in(['Milik Koperasi', 'Titip Jual'])],
-            'items_master.*.fee_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items_master.*.hak_mitra_per_unit' => ['nullable', 'numeric', 'min:0'],
 
             'items_manual' => ['nullable', 'array'],
             'items_manual.*.nama' => ['nullable', 'string', 'max:255'],
@@ -404,8 +414,7 @@ class SalesTransactionController extends Controller
             'items_manual.*.harga_modal' => ['nullable', 'numeric', 'min:0'],
             'items_manual.*.diskon' => ['nullable', 'numeric', 'min:0'],
             'items_manual.*.catatan' => ['nullable', 'string'],
-            'items_manual.*.tipe_kepemilikan' => ['nullable', Rule::in(['Milik Koperasi', 'Titip Jual'])],
-            'items_manual.*.fee_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items_manual.*.hak_mitra_per_unit' => ['nullable', 'numeric', 'min:0'],
 
             'diskon' => ['nullable', 'numeric', 'min:0'],
             'ongkir' => ['nullable', 'numeric', 'min:0'],
@@ -430,20 +439,45 @@ class SalesTransactionController extends Controller
      * & tidak mudah "lupa" salah satu jalur (ini penyebab bug sebelumnya:
      * kolomnya sudah ada di database, tapi tidak pernah diisi).
      */
+    /**
+     * HAK MITRA — satu angka, diisi langsung per unit.
+     *
+     * =====================================================================
+     * YANG DIGANTI
+     * =====================================================================
+     *
+     * Dulu baris ini menuntut tiga keputusan untuk satu angka: pilih jenis
+     * ("Milik Koperasi" atau "Titip Jual"), lalu isi persentase fee koperasi,
+     * lalu hak mitra dihitung sebagai SISANYA (subtotal dikurangi fee).
+     *
+     * Akibat sampingnya tidak kelihatan dari form: item Titip Jual
+     * dikeluarkan dari Subtotal dan HPP koperasi, sehingga dua transaksi
+     * dengan barang dan harga yang sama bisa menghasilkan angka penjualan
+     * yang berbeda hanya karena jenisnya dipilih berbeda.
+     *
+     * Sekarang cukup satu isian: berapa hak mitra per unit. Kosong berarti
+     * tidak ada mitra.
+     *
+     * =====================================================================
+     * TIDAK IKUT MENGURANGI PROFIT
+     * =====================================================================
+     *
+     * Profit dihitung dari Harga Jual dikurangi Modal/HPP. Hak mitra dicatat
+     * berdampingan, bukan dikurangkan lagi — kalau modalnya memang sudah
+     * mewakili biaya yang sama, satu biaya akan terhitung dua kali.
+     *
+     * fee_rate dan fee_amount dikembalikan 0 dan kolomnya TIDAK dihapus:
+     * membuang kolom berarti membuang angka transaksi lama yang mungkin
+     * pernah memakainya.
+     *
+     * @return array{0: float, 1: float, 2: float} [fee_rate, fee_amount, hak_mitra_amount]
+     */
     private function hitungKepemilikan(array $row, float $subtotalItem): array
     {
-        $tipeKepemilikan = $row['tipe_kepemilikan'] ?? 'Milik Koperasi';
-        $isTitipJual = $tipeKepemilikan === 'Titip Jual';
+        $qty = max(0, (int) ($row['qty'] ?? 0));
+        $perUnit = max(0, (float) ($row['hak_mitra_per_unit'] ?? 0));
 
-        if (! $isTitipJual) {
-            return [0.0, 0.0, 0.0];
-        }
-
-        $feeRate = (float) ($row['fee_rate'] ?? 0);
-        $feeAmount = round($subtotalItem * $feeRate / 100, 2);
-        $hakMitraAmount = max(0, round($subtotalItem - $feeAmount, 2));
-
-        return [$feeRate, $feeAmount, $hakMitraAmount];
+        return [0.0, 0.0, round($qty * $perUnit, 2)];
     }
 
     private function buildItemsFromRequest(array $validated, int $unitId): array

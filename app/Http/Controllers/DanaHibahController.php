@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\DanaHibahKeluar;
 use App\Models\DanaHibahMasuk;
+use App\Services\PenghapusanPermanenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DanaHibahController extends Controller
 {
@@ -90,6 +92,55 @@ class DanaHibahController extends Controller
             ->with('success', 'Catatan dana dibatalkan. Barisnya tetap tersimpan sebagai jejak.');
     }
 
+    /**
+     * Form perbaikan satu baris arus dana.
+     *
+     * Rute perbarui() sudah ada sejak lama tapi TIDAK PERNAH punya halaman
+     * yang memanggilnya — jadi secara praktis catatan dana tidak bisa
+     * diperbaiki sama sekali, hanya dibatalkan. Halaman ini yang menutup
+     * jaraknya.
+     */
+    public function edit(string $jenis, int $id)
+    {
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        $model = $this->modelUntuk($jenis);
+        $baris = $model::findOrFail($id);
+
+        abort_if($baris->dibatalkan(), 403, 'Catatan yang sudah dibatalkan tidak bisa diubah.');
+
+        return view('koperasi.keuangan.dana-edit', [
+            'baris' => $baris,
+            'jenis' => $jenis,
+            'judul' => 'Dana Hibah — ' . ($jenis === 'masuk' ? 'Pemasukan' : 'Penggunaan'),
+            'kolom' => $this->kolomDeskriptif($jenis),
+            'aksiPerbarui' => route('koperasi.dana-hibah.perbarui', ['jenis' => $jenis, 'id' => $id]),
+            'aksiBatalkan' => route('koperasi.dana-hibah.batalkan', ['jenis' => $jenis, 'id' => $id]),
+        ]);
+    }
+
+    /**
+     * Kolom keterangan yang BERBEDA antar jenis arus dana, beserta labelnya.
+     *
+     * Satu tempat saja: dipakai form editnya untuk menggambar isian, dan
+     * dipakai perbarui() untuk menyusun aturan validasinya. Kalau keduanya
+     * punya daftar sendiri-sendiri, suatu saat yang satu akan menggambar
+     * isian yang tidak pernah divalidasi yang lain.
+     *
+     * @return array<string, array{label: string, wajib: bool}>
+     */
+    private function kolomDeskriptif(string $jenis): array
+    {
+        return match ($jenis) {
+            'masuk' => [
+                'sumber' => ['label' => 'Sumber Hibah', 'wajib' => true],
+                'peruntukan' => ['label' => 'Peruntukan', 'wajib' => false],
+            ],
+            'keluar' => ['keperluan' => ['label' => 'Keperluan', 'wajib' => true]],
+            default => abort(404),
+        };
+    }
+
     /** Memperbaiki catatan yang masih berlaku (belum dibatalkan). */
     public function perbarui(Request $request, string $jenis, int $id)
     {
@@ -102,11 +153,21 @@ class DanaHibahController extends Controller
 
         $sebelum = 'Rp' . number_format((float) $baris->nominal, 0, ',', '.');
 
-        $baris->update($request->validate([
+        $aturan = [
             'tanggal' => ['required', 'date'],
             'nominal' => ['required', 'numeric', 'min:0'],
             'keterangan' => ['nullable', 'string'],
-        ]));
+        ];
+
+        // Sumber/keperluan/peruntukan ikut bisa diperbaiki. Tanpa ini, salah
+        // ketik nama penyumbang hanya bisa dibereskan dengan membatalkan
+        // seluruh catatannya — pembatalan untuk sesuatu yang bukan kesalahan
+        // angka.
+        foreach ($this->kolomDeskriptif($jenis) as $nama => $spek) {
+            $aturan[$nama] = [$spek['wajib'] ? 'required' : 'nullable', 'string', 'max:255'];
+        }
+
+        $baris->update($request->validate($aturan));
 
         ActivityLog::record(
             action: 'dana_hibah_updated',
@@ -119,6 +180,58 @@ class DanaHibahController extends Controller
         return redirect()
             ->route('koperasi.keuangan.index')
             ->with('success', 'Catatan dana berhasil diperbaiki. Perubahannya tercatat di Activity Log.');
+    }
+
+    /**
+     * HAPUS PERMANEN satu baris arus dana.
+     *
+     * Pembatalan (batalkan) adalah jalur koreksi dan tetap yang utama:
+     * barisnya tinggal sebagai jejak. Yang ini jalur lain untuk keperluan
+     * lain — baris percobaan yang sudah dibatalkan dan tidak punya nilai
+     * histori, yang hanya menumpuk di riwayat.
+     *
+     * Penjagaannya ada di PenghapusanPermanenService: baris yang MASIH
+     * BERLAKU ditolak. Jadi menghapus selalu keputusan kedua, diambil pada
+     * waktu berbeda dari pembatalannya, dan alasan pembatalan itu sudah
+     * lebih dulu tercatat di Activity Log sebelum barisnya lenyap.
+     *
+     * Saldo dana tidak disimpan di kolom mana pun — selalu dijumlahkan dari
+     * baris masuk dan keluar. Begitu barisnya hilang, saldonya menyesuaikan
+     * sendiri.
+     */
+    public function destroy(string $jenis, int $id, PenghapusanPermanenService $penghapusan)
+    {
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        $model = $this->modelUntuk($jenis);
+        $baris = $model::findOrFail($id);
+
+        $alasan = $penghapusan->alasanTertahan($baris);
+
+        if ($alasan !== null) {
+            return back()->withErrors(['hapus' => $alasan]);
+        }
+
+        // Diambil SEBELUM dihapus; sesudahnya tidak ada yang tersisa untuk
+        // dirujuk.
+        $kelasBaris = class_basename($baris);
+        $ringkasan = ($jenis === 'masuk' ? 'Pemasukan' : 'Penggunaan')
+            . ' Rp' . number_format((float) $baris->nominal, 0, ',', '.')
+            . ' tgl ' . optional($baris->tanggal)->format('d-m-Y');
+
+        DB::transaction(fn () => $penghapusan->hapus($baris));
+
+        ActivityLog::record(
+            action: 'dana_hibah_permanently_deleted',
+            modelType: $kelasBaris,
+            modelId: $id,
+            description: 'DANA HIBAH DIHAPUS PERMANEN: ' . $ringkasan
+                . '. Saldo dana ikut menyesuaikan. Tindakan ini tidak dapat dibatalkan.',
+        );
+
+        return redirect()
+            ->route('koperasi.keuangan.index')
+            ->with('success', 'Dana Hibah — ' . $ringkasan . ' dihapus permanen.');
     }
 
     /**

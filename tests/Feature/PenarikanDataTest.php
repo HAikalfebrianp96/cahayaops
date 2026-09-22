@@ -212,11 +212,11 @@ class PenarikanDataTest extends TestCase
      * dulu memunculkan kalimat yang sama.
      *
      * Keadaan kedua terjadi sungguhan pada data berjalan: simpanan pokok &
-     * wajib tercatat Rp160.000, seluruhnya milik anggota terarsip. Kalimat
+     * wajib tercatat Rp160.000, seluruhnya milik anggota tidak aktif. Kalimat
      * "belum ada simpanan tercatat" menyesatkan ke arah yang salah —
      * pengurus akan mencari-cari untuk mencatat simpanan yang sudah ada.
      */
-    public function test_peringatan_membedakan_belum_dicatat_dari_milik_anggota_terarsip(): void
+    public function test_peringatan_membedakan_belum_dicatat_dari_milik_anggota_tidak_aktif(): void
     {
         $periode = ShuPeriod::create([
             'tahun' => 2026,
@@ -235,13 +235,13 @@ class PenarikanDataTest extends TestCase
             implode(' ', $layanan->peringatan($periode))
         );
 
-        // --- Sebab kedua: ada, tapi pemiliknya sudah diarsipkan ---
+        // --- Sebab kedua: ada, tapi pemiliknya bukan anggota aktif lagi ---
         [$anggota] = $this->anggotaBersimpanan('Zul', 160000);
-        $anggota->delete();
+        $anggota->update(['status' => 'Tidak Aktif']);
 
         $peringatan = implode(' ', $layanan->peringatan($periode));
 
-        $this->assertStringContainsString('anggota yang sudah diarsipkan', $peringatan);
+        $this->assertStringContainsString('anggota yang statusnya tidak lagi aktif', $peringatan);
         $this->assertStringContainsString('Rp160.000', $peringatan);
         $this->assertStringNotContainsString('Belum ada simpanan pokok/wajib tercatat', $peringatan);
     }

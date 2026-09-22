@@ -100,6 +100,7 @@
                     <th class="py-2 px-4">Nominal</th>
                     <th class="py-2 px-4">Metode</th>
                     <th class="py-2 px-4">Status</th>
+                    <th class="py-2 px-4">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,9 +116,55 @@
                                 {{ $r->status }}
                             </span>
                         </td>
+
+                        {{-- AKSI MENGIKUTI KEADAAN BARIS.
+
+                             Pengeluaran aktif tidak menawarkan "Pulihkan", dan yang
+                             sudah dibatalkan tidak menawarkan "Batalkan" — tombol yang
+                             pasti ditolak server tidak pernah ditampilkan.
+
+                             "Hapus Permanen" hanya pada yang SUDAH dibatalkan: penjaganya
+                             menuntut pembatalan beserta alasannya lebih dulu, supaya uang
+                             yang hilang dari laporan selalu punya keterangan kenapa.
+
+                             onclick pada <tr> membuka detail; setiap tombol di sel ini
+                             menghentikan rambatannya, kalau tidak satu klik akan
+                             mengerjakan dua hal sekaligus. --}}
+                        <td class="py-2 px-4 whitespace-nowrap" onclick="event.stopPropagation();">
+                            <div class="flex items-center gap-3">
+                                <a href="{{ route('koperasi.pengeluaran.show', $r) }}"
+                                   class="text-status-info hover:underline text-xs font-medium">Detail</a>
+
+                                @if (auth()->user()?->bolehKelolaKoperasi())
+                                    @if ($r->dibatalkan())
+                                        <form method="POST" action="{{ route('koperasi.pengeluaran.pulihkan', $r) }}" class="inline"
+                                              onsubmit="return confirm('Pulihkan pengeluaran ini?
+
+Nominalnya akan kembali dihitung di laporan.');">
+                                            @csrf
+                                            <button type="submit" class="text-cahaya-primary hover:underline text-xs font-medium">Pulihkan</button>
+                                        </form>
+
+                                        <form method="POST" action="{{ route('koperasi.pengeluaran.destroy', $r) }}" class="inline"
+                                              onsubmit="return confirm('Hapus Pengeluaran Permanen?
+
+Data yang dihapus tidak dapat dipulihkan. Pastikan data ini memang ingin dihapus.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-status-danger hover:underline text-xs font-medium">Hapus Permanen</button>
+                                        </form>
+                                    @else
+                                        <a href="{{ route('koperasi.pengeluaran.edit', $r) }}"
+                                           class="text-cahaya-primary hover:underline text-xs font-medium">Edit</a>
+                                        <a href="{{ route('koperasi.pengeluaran.show', $r) }}"
+                                           class="text-status-danger hover:underline text-xs font-medium">Batalkan</a>
+                                    @endif
+                                @endif
+                            </div>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="py-8 text-center text-text-secondary italic">Belum ada pengeluaran untuk filter ini.</td></tr>
+                    <tr><td colspan="7" class="py-8 text-center text-text-secondary italic">Belum ada pengeluaran untuk filter ini.</td></tr>
                 @endforelse
             </tbody>
         </table>

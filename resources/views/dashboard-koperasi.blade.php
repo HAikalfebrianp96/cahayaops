@@ -107,13 +107,13 @@
         <p class="text-[11px] text-text-secondary mt-1">
             Entri yang dibatalkan tidak ikut dihitung, tapi tetap tersimpan sebagai jejak koreksi.
         </p>
-        @if (($stats['simpanan_terarsip'] ?? 0) > 0)
+        @if (($stats['simpanan_anggota_tidak_aktif'] ?? 0) > 0)
             {{-- Tanpa keterangan ini, kartu "Total Anggota" dan kartu ini bisa
                  saling bertentangan di layar yang sama: jumlah anggotanya
                  sedikit, simpanannya banyak, dan tidak ada yang menjelaskan
                  kenapa. --}}
             <p class="text-[11px] text-status-warning mt-1">
-                Termasuk {{ rupiah($stats['simpanan_terarsip']) }} milik anggota yang sudah diarsipkan
+                Termasuk {{ rupiah($stats['simpanan_anggota_tidak_aktif']) }} milik anggota yang statusnya tidak lagi aktif
                 — dananya masih dipegang koperasi, tetapi pemiliknya tidak lagi terhitung sebagai anggota.
             </p>
         @endif
@@ -203,7 +203,20 @@
                         @foreach ($simpananTerbaru as $s)
                             <tr class="border-b border-border-soft last:border-0">
                                 <td class="px-6 py-3 text-text-secondary whitespace-nowrap">{{ $s->tanggal->format('d-m-Y') }}</td>
-                                <td class="px-6 py-3 text-text-main">{{ $s->koperasiMember?->namaTampil() ?? '—' }}</td>
+                                {{-- Nama penyetor tetap tampil walau keanggotaannya
+                                     sudah diarsipkan — tapi DITANDAI.
+
+                                     Baris ini merekam setoran yang benar-benar terjadi;
+                                     namanya bagian dari fakta itu. Penandanya menjawab
+                                     pertanyaan berikutnya: kenapa orang ini tidak ada di
+                                     daftar anggota. Pola yang sama dengan kolom pelanggan
+                                     di daftar Penjualan. --}}
+                                <td class="px-6 py-3 text-text-main">
+                                    {{ $s->koperasiMemberTermasukArsip?->namaTampil() ?? '—' }}
+                                    @if ($s->koperasiMemberTermasukArsip && $s->koperasiMemberTermasukArsip->status !== 'Aktif')
+                                        <span class="text-[10px] text-text-secondary/70">(tidak aktif)</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-3 text-text-secondary">{{ $s->jenis_simpanan }}</td>
                                 <td class="px-6 py-3 font-medium text-text-main">{{ rupiah($s->nominal) }}</td>
                             </tr>

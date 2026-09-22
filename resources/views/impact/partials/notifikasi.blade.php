@@ -1,18 +1,8 @@
 {{--
-    Pesan sukses & gagal untuk seluruh modul Dampak.
+    Pesan sukses & gagal kini ditampilkan SEKALI saja di layouts.app.
 
-    Pesan gagal di modul ini hampir selalu berupa DAFTAR APA YANG KURANG
-    (lihat SroiService::periksaKesiapan), bukan error teknis — jadi ia diberi
-    ruang baca yang layak, bukan satu baris merah yang mudah diabaikan.
+    Partial ini dulu menampilkannya lagi, sehingga setiap pesan sukses di
+    modul Dampak muncul dua kali di halaman yang sama. Berkasnya disisakan
+    kosong supaya @include yang sudah tersebar tidak patah; isinya tidak
+    dibutuhkan lagi.
 --}}
-@if (session('success'))
-    <div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-        {{ session('success') }}
-    </div>
-@endif
-
-@if (session('error'))
-    <div class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-        {{ session('error') }}
-    </div>
-@endif

@@ -45,19 +45,19 @@ class LabaRugiService
             }
 
             foreach ($trx->items as $item) {
-                $isTitipJual = ((float) $item->fee_rate > 0) || ((float) $item->hak_mitra_amount > 0);
+                // SETIAP item masuk Penjualan dan HPP — tidak ada lagi item
+                // yang dikecualikan karena "jenis"-nya.
+                $perUnit[$trx->unit_id]['penjualan'] += (float) $item->subtotal;
+                $perUnit[$trx->unit_id]['hpp'] += (float) $item->qty * (float) $item->harga_modal_snapshot;
 
-                if ($isTitipJual) {
-                    $fee = $item->fee_amount !== null
-                        ? (float) $item->fee_amount
-                        : ($item->subtotal * (float) $item->fee_rate / 100);
+                // Hak Mitra dicatat BERDAMPINGAN, bukan dikurangkan: laba
+                // kotor sudah lahir dari Penjualan - HPP.
+                $perUnit[$trx->unit_id]['hak_mitra'] += (float) ($item->hak_mitra_amount ?? 0);
 
-                    $perUnit[$trx->unit_id]['fee_koperasi'] += $fee;
-                    $perUnit[$trx->unit_id]['hak_mitra'] += (float) ($item->hak_mitra_amount ?? ($item->subtotal - $fee));
-                } else {
-                    $perUnit[$trx->unit_id]['penjualan'] += (float) $item->subtotal;
-                    $perUnit[$trx->unit_id]['hpp'] += (float) $item->qty * (float) $item->harga_modal_snapshot;
-                }
+                // fee_koperasi hanya untuk transaksi LAMA yang sempat memakai
+                // persentase fee. Transaksi baru selalu 0; kolomnya tidak
+                // dihapus supaya angka lama tetap punya tempat.
+                $perUnit[$trx->unit_id]['fee_koperasi'] += (float) ($item->fee_amount ?? 0);
             }
         }
 

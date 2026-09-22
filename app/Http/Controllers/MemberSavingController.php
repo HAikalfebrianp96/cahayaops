@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\KoperasiMember;
 use App\Models\MemberSaving;
+use App\Services\PenghapusanPermanenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +16,8 @@ use Illuminate\Validation\Rule;
  * SIMPANAN ANGGOTA — koreksi yang MENINGGALKAN JEJAK.
  *
  * Ini uang anggota, jadi aturannya sengaja lebih ketat daripada modul lain di
- * CahayaOS. TIDAK ADA hard delete di sini sama sekali; baris simpanan tidak
- * pernah lenyap dari database. Yang tersedia dua jalur:
+ * CahayaOS. Untuk MENGOREKSI angka, tersedia dua jalur — dan keduanya
+ * meninggalkan jejak:
  *
  *   1. PERBAIKI (update)  — selama entri belum dikunci. Nominal, tanggal,
  *      jenis, dan keterangannya boleh diubah, dan Activity Log mencatat nilai
@@ -30,6 +31,19 @@ use Illuminate\Validation\Rule;
  *      yang menunjuk balik ke entri asal.
  *
  * Dengan begitu saldo selalu bisa diperbaiki tanpa satu pun transaksi hilang.
+ *
+ * Di luar kedua jalur itu ada jalur KETIGA yang bukan koreksi:
+ *
+ *   3. HAPUS PERMANEN (destroy) — barisnya benar-benar dibuang. Ini untuk
+ *      entri percobaan yang sudah dibatalkan dan tidak punya nilai histori
+ *      apa pun; ia hanya menumpuk di riwayat anggota dan mengaburkan angka
+ *      yang sebenarnya. Syaratnya dijaga PenghapusanPermanenService: harus
+ *      sudah dibatalkan lebih dulu, jadi menghapus selalu keputusan KEDUA
+ *      yang diambil pada waktu berbeda — dan entri yang sudah jadi mata
+ *      rantai koreksi entri lain tetap tidak bisa dihapus.
+ *
+ *      Yang TIDAK pernah jadi alasan menghapus: status anggotanya. Anggota
+ *      nonaktif tetap memiliki simpanannya secara utuh.
  */
 class MemberSavingController extends Controller
 {
@@ -197,6 +211,45 @@ class MemberSavingController extends Controller
         return redirect()
             ->route('koperasi.anggota.show', $simpanan->koperasi_member_id)
             ->with('success', 'Entri simpanan dikunci. Koreksi berikutnya harus lewat Batalkan agar berjejak.');
+    }
+
+    /**
+     * HAPUS PERMANEN satu entri simpanan.
+     *
+     * Saldo anggota TIDAK disimpan di kolom mana pun: ia selalu dijumlahkan
+     * dari entri-entri ini. Jadi begitu barisnya hilang, saldonya ikut
+     * turun dengan sendirinya — tidak ada angka lain yang perlu disesuaikan,
+     * dan karena itu pula tidak ada angka yang bisa tertinggal salah.
+     */
+    public function destroy(MemberSaving $simpanan, PenghapusanPermanenService $penghapusan)
+    {
+        Gate::authorize('hapusPermanen', $simpanan);
+
+        $alasan = $penghapusan->alasanTertahan($simpanan);
+
+        if ($alasan !== null) {
+            return back()->withErrors(['hapus' => $alasan]);
+        }
+
+        // Diambil SEBELUM dihapus; sesudahnya tidak ada yang tersisa untuk
+        // dirujuk. Tidak ada data rahasia di sini.
+        $id = $simpanan->id;
+        $anggotaId = $simpanan->koperasi_member_id;
+        $ringkasan = $this->ringkas($simpanan);
+
+        DB::transaction(fn () => $penghapusan->hapus($simpanan));
+
+        ActivityLog::record(
+            action: 'saving_permanently_deleted',
+            modelType: 'MemberSaving',
+            modelId: $id,
+            description: 'SIMPANAN DIHAPUS PERMANEN: ' . $ringkasan
+                . '. Saldo anggota ikut menyesuaikan. Tindakan ini tidak dapat dibatalkan.',
+        );
+
+        return redirect()
+            ->route('koperasi.anggota.show', $anggotaId)
+            ->with('success', 'Entri simpanan ' . $ringkasan . ' dihapus permanen.');
     }
 
     private function validated(Request $request): array

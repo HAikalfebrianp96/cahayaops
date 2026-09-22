@@ -329,6 +329,12 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::post('/simpanan/{simpanan}/batalkan', [MemberSavingController::class, 'batalkan'])->name('savings.batalkan');
         Route::post('/simpanan/{simpanan}/pulihkan', [MemberSavingController::class, 'pulihkan'])->name('savings.pulihkan');
         Route::post('/simpanan/{simpanan}/kunci', [MemberSavingController::class, 'kunci'])->name('savings.kunci');
+
+        // HAPUS PERMANEN. Terpisah dari 'batalkan' dan memakai verb DELETE:
+        // dua tindakan yang tidak bisa dibatalkan tidak boleh punya alamat
+        // yang mirip. Syaratnya (harus sudah dibatalkan, bukan mata rantai
+        // koreksi) dijaga PenghapusanPermanenService, bukan oleh rute.
+        Route::delete('/simpanan/{simpanan}', [MemberSavingController::class, 'destroy'])->name('savings.destroy');
 	Route::post('/anggota/{anggota}/generate-pin', [KoperasiMemberController::class, 'generatePin'])->name('anggota.generate-pin');
 
         Route::resource('unit-usaha', BusinessUnitController::class)
@@ -369,6 +375,11 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::put('/pengeluaran/{pengeluaran}', [PengeluaranController::class, 'update'])->name('pengeluaran.update');
         Route::post('/pengeluaran/{pengeluaran}/batalkan', [PengeluaranController::class, 'cancel'])->name('pengeluaran.cancel');
         Route::post('/pengeluaran/{pengeluaran}/pulihkan', [PengeluaranController::class, 'pulihkan'])->name('pengeluaran.pulihkan');
+
+        // Hapus permanen. Penjaganya menolak pengeluaran yang masih aktif —
+        // harus dibatalkan (beserta alasannya) lebih dulu, sama seperti
+        // transaksi penjualan.
+        Route::delete('/pengeluaran/{pengeluaran}', [PengeluaranController::class, 'destroy'])->name('pengeluaran.destroy');
         Route::get('/pengeluaran/{pengeluaran}/bukti', [PengeluaranController::class, 'bukti'])->name('pengeluaran.bukti');
 	        // K8 — Kelola Kategori Pengeluaran
         Route::get('/kategori-pengeluaran', [KategoriPengeluaranController::class, 'index'])->name('kategori-pengeluaran.index');
@@ -391,6 +402,10 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         // jadi kesalahan dikoreksi lewat perbaikan atau pembatalan berjejak.
         // {jenis} dibatasi 'masuk|keluar' di level route, lalu dipetakan ke
         // model lewat daftar putih di controller.
+        Route::get('/keuangan/dana-sukarela/{jenis}/{id}/edit', [DanaSukarelaController::class, 'edit'])
+            ->where('jenis', 'masuk|keluar')->name('dana-sukarela.edit');
+        Route::get('/keuangan/dana-hibah/{jenis}/{id}/edit', [DanaHibahController::class, 'edit'])
+            ->where('jenis', 'masuk|keluar')->name('dana-hibah.edit');
         Route::put('/keuangan/dana-sukarela/{jenis}/{id}', [DanaSukarelaController::class, 'perbarui'])
             ->where('jenis', 'masuk|keluar')->name('dana-sukarela.perbarui');
         Route::post('/keuangan/dana-sukarela/{jenis}/{id}/batalkan', [DanaSukarelaController::class, 'batalkan'])
@@ -399,6 +414,12 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
             ->where('jenis', 'masuk|keluar')->name('dana-hibah.perbarui');
         Route::post('/keuangan/dana-hibah/{jenis}/{id}/batalkan', [DanaHibahController::class, 'batalkan'])
             ->where('jenis', 'masuk|keluar')->name('dana-hibah.batalkan');
+
+        // Hapus permanen arus dana — hanya untuk baris yang SUDAH dibatalkan.
+        Route::delete('/keuangan/dana-sukarela/{jenis}/{id}', [DanaSukarelaController::class, 'destroy'])
+            ->where('jenis', 'masuk|keluar')->name('dana-sukarela.destroy');
+        Route::delete('/keuangan/dana-hibah/{jenis}/{id}', [DanaHibahController::class, 'destroy'])
+            ->where('jenis', 'masuk|keluar')->name('dana-hibah.destroy');
 
         // Pengaturan Koperasi Cahaya (identitas, logo, TTD, stempel, invoice).
         // Tampilannya sekarang jadi salah satu TAB di /pengaturan, jadi route

@@ -54,11 +54,14 @@ class ProductServiceController extends Controller
             'harga_modal' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $kode = 'QP' . now()->format('ymd') . strtoupper(Str::random(4));
-
+        // Kodenya TIDAK dibuat di sini lagi.
+        //
+        // Dulu jalur cepat ini membuat kodenya sendiri (QP + tanggal + acak)
+        // sementara form Tambah Produk menyuruh petugas mengetiknya — dua
+        // jalur, dua pola kode, untuk data yang sama. Sekarang keduanya
+        // lewat ProductService::booted().
         $produk = ProductService::create([
             'unit_id' => $unit->id,
-            'kode' => $kode,
             'nama' => $validated['nama'],
             'jenis' => $validated['jenis'],
             'satuan' => $validated['satuan'] ?? null,
@@ -131,11 +134,15 @@ class ProductServiceController extends Controller
 
     private function validated(Request $request, int $unitId, ?int $produkId = null): array
     {
+        // 'kode' SENGAJA tidak ada di sini.
+        //
+        // Kode dibuat sistem (ProductService::booted) dan tidak pernah
+        // berasal dari request. Kalau ia tetap divalidasi dari input, satu
+        // permintaan buatan tangan bisa menyisipkan kode pilihan sendiri —
+        // termasuk kode yang sudah beredar di nota untuk barang lain.
+        //
+        // Pada Edit, kode juga tidak ikut berubah: ia identitas produk.
         return $request->validate([
-            'kode' => [
-                'required', 'string', 'max:50',
-                Rule::unique('products_services', 'kode')->where('unit_id', $unitId)->ignore($produkId),
-            ],
             'nama' => ['required', 'string', 'max:255'],
             'jenis' => ['required', Rule::in(ProductService::JENIS_OPTIONS)],
             'kategori' => ['nullable', 'string', 'max:255'],
