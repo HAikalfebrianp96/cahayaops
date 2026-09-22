@@ -12,9 +12,13 @@ class LabaRugiService
      * Hitung Laba Rugi untuk periode & unit tertentu.
      *
      * Prinsip:
-     * - Item TITIP JUAL (fee_rate > 0 ATAU hak_mitra_amount > 0) → pendapatan
-     *   koperasi HANYA fee-nya, BUKAN nilai penjualan penuh (hindari double counting).
-     * - Item MILIK KOPERASI (fee_rate = 0) → Penjualan - HPP = Laba Kotor, seperti biasa.
+     * - SETIAP item masuk Penjualan (subtotal) dan HPP (qty x
+     *   harga_modal_snapshot); Laba Kotor = Penjualan - HPP. Tidak ada lagi
+     *   item yang dikecualikan karena jenisnya ("Titip Jual" sudah dihapus).
+     * - Hak Mitra dicatat BERDAMPINGAN, tidak mengurangi laba.
+     * - Fee Koperasi hanya dari transaksi lama (fee_amount); transaksi baru
+     *   selalu 0. Tetap ditambahkan ke laba supaya angka lama tidak hilang.
+     * - Piutang = sisa tagihan transaksi yang sama — informasi, bukan rumus laba.
      * - Transaksi Draft & Dibatalkan TIDAK DIHITUNG.
      * - Pengeluaran Dibatalkan TIDAK DIHITUNG.
      * - Pengeluaran PEMBELIAN STOK (mis. "Re-Stok Produk") TIDAK mengurangi
