@@ -8,10 +8,13 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\ProductService;
 use App\Models\SalesTransaction;
+use App\Models\SalesTransactionItem;
 use App\Services\PenghapusanPermanenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -147,7 +150,9 @@ class SalesTransactionController extends Controller
             ? 'Transaksi berhasil disimpan. Invoice ' . $transaksi->invoice->nomor_invoice . ' otomatis dibuat.'
             : 'Transaksi berhasil disimpan. Anda bisa buat invoice kapan saja dari halaman detail.';
 
-        return redirect()->route('koperasi.penjualan.show', $transaksi)->with('success', $pesan);
+        return redirect()->route('koperasi.penjualan.show', $transaksi)
+            ->with('success', $pesan)
+            ->with('warning', $this->peringatanHpp($itemsToSave));
     }
 
     public function edit(SalesTransaction $transaksi)
@@ -176,7 +181,10 @@ class SalesTransactionController extends Controller
         [$subtotal, $diskon, $ongkir, $total] = $this->hitungTotal($validated, $itemsToSave);
         $dpNominal = $this->hitungDibayar($validated, $total);
 
-        DB::transaction(function () use ($transaksi, $validated, $itemsToSave, $subtotal, $diskon, $ongkir, $total, $dpNominal) {
+        // Dibaca SEBELUM diganti — untuk jejak perubahan item di bawah.
+        $itemLama = $transaksi->items()->orderBy('id')->get();
+
+        DB::transaction(function () use ($transaksi, $validated, $itemsToSave, $subtotal, $diskon, $ongkir, $total, $dpNominal, $itemLama) {
             $customer = $this->resolveCustomer($validated);
 
             $transaksi->update([
@@ -206,11 +214,112 @@ class SalesTransactionController extends Controller
             foreach ($itemsToSave as $item) {
                 $transaksi->items()->create($item);
             }
+
+            $this->catatPerubahanItem($transaksi, $itemLama, $itemsToSave);
         });
 
         return redirect()
             ->route('koperasi.penjualan.show', $transaksi)
-            ->with('success', 'Transaksi berhasil diperbarui.');
+            ->with('success', 'Transaksi berhasil diperbarui.')
+            ->with('warning', $this->peringatanHpp($itemsToSave));
+    }
+
+    /**
+     * Gabungan peringatan HPP > harga jual untuk seluruh baris — null kalau
+     * semua baris wajar. Transaksinya TETAP tersimpan; ini hanya pengingat.
+     */
+    private function peringatanHpp(array $itemsToSave): ?string
+    {
+        $pesan = collect($itemsToSave)
+            ->map(fn (array $item) => SalesTransactionItem::peringatanHpp(
+                $item['nama_snapshot'],
+                (float) $item['harga_modal_snapshot'],
+                (float) $item['harga_jual_snapshot'],
+            ))
+            ->filter()
+            ->values();
+
+        return $pesan->isEmpty() ? null : $pesan->implode(' ');
+    }
+
+    /**
+     * JEJAK PERUBAHAN ITEM — HPP, harga, qty dari berapa menjadi berapa.
+     *
+     * Item transaksi diganti bersih setiap kali disimpan, dan
+     * SalesTransactionItem tidak diawasi Observer. Akibatnya, mengoreksi HPP
+     * satu baris tanpa menyentuh kolom transaksi lain tidak meninggalkan
+     * jejak APA PUN: Eloquent tidak memicu "updated" untuk baris induk yang
+     * tidak berubah. Padahal HPP itulah yang menentukan laba rugi.
+     *
+     * Baris lama dipasangkan dengan baris baru berdasarkan produk + nama,
+     * sesuai urutannya. Dicatat lewat ActivityLog::record() yang sudah ada.
+     */
+    private function catatPerubahanItem(SalesTransaction $transaksi, Collection $itemLama, array $itemBaru): void
+    {
+        $kolom = [
+            'qty' => 'qty',
+            'harga_jual_snapshot' => 'harga jual',
+            'harga_modal_snapshot' => 'HPP',
+            'diskon' => 'diskon',
+            'hak_mitra_amount' => 'hak mitra',
+        ];
+
+        $kunci = fn ($item) => ($item['product_service_id'] ?? '') . '|' . $item['nama_snapshot'];
+        $lama = $itemLama->map(fn ($item) => $item->only(array_merge(array_keys($kolom), ['product_service_id', 'nama_snapshot'])))
+            ->groupBy($kunci);
+        $baru = collect($itemBaru)->groupBy($kunci);
+
+        $perubahan = [];
+
+        foreach ($lama->keys()->merge($baru->keys())->unique() as $k) {
+            $daftarLama = $lama->get($k, collect())->values();
+            $daftarBaru = $baru->get($k, collect())->values();
+
+            for ($i = 0; $i < max($daftarLama->count(), $daftarBaru->count()); $i++) {
+                $l = $daftarLama->get($i);
+                $b = $daftarBaru->get($i);
+                $nama = ($b ?? $l)['nama_snapshot'];
+
+                if ($l === null) {
+                    $perubahan[] = $nama . ' ditambahkan';
+                    continue;
+                }
+
+                if ($b === null) {
+                    $perubahan[] = $nama . ' dihapus';
+                    continue;
+                }
+
+                $bagian = [];
+                foreach ($kolom as $field => $label) {
+                    $nilaiLama = (float) ($l[$field] ?? 0);
+                    $nilaiBaru = (float) ($b[$field] ?? 0);
+
+                    if (abs($nilaiLama - $nilaiBaru) < 0.005) {
+                        continue;
+                    }
+
+                    $bagian[] = $field === 'qty'
+                        ? $label . ' ' . (int) $nilaiLama . ' -> ' . (int) $nilaiBaru
+                        : $label . ' ' . rupiah($nilaiLama) . ' -> ' . rupiah($nilaiBaru);
+                }
+
+                if ($bagian !== []) {
+                    $perubahan[] = $nama . ' ' . implode(', ', $bagian);
+                }
+            }
+        }
+
+        if ($perubahan === []) {
+            return;
+        }
+
+        ActivityLog::record(
+            action: 'sales_items_updated',
+            modelType: 'SalesTransaction',
+            modelId: $transaksi->id,
+            description: Str::limit('Item penjualan ' . $transaksi->nomor_transaksi . ' diubah: ' . implode('; ', $perubahan), 250),
+        );
     }
 
     /**
@@ -380,10 +489,27 @@ class SalesTransactionController extends Controller
             'customers' => Customer::orderBy('nama')->get(),
             'statusOptions' => SalesTransaction::STATUS_PEMBAYARAN_OPTIONS,
             'metodeOptions' => SalesTransaction::METODE_PEMBAYARAN_OPTIONS,
-            'statusTransaksiOptions' => SalesTransaction::STATUS_TRANSAKSI_OPTIONS,
+            'statusTransaksiOptions' => $this->statusDariForm(),
             'metodePengirimanOptions' => SalesTransaction::METODE_PENGIRIMAN_OPTIONS,
             'ongkirDitanggungOptions' => SalesTransaction::ONGKIR_DITANGGUNG_OPTIONS,
         ];
+    }
+
+    /**
+     * Status yang boleh dipilih lewat form Tambah/Edit — TANPA "Dibatalkan".
+     *
+     * Pembatalan punya jalurnya sendiri (batalkan()) yang MEWAJIBKAN alasan,
+     * mencatat siapa & kapan, dan menulis Activity Log. Kalau "Dibatalkan"
+     * bisa dipilih dari dropdown, seluruh pengaman itu terlewati — dan
+     * transaksinya langsung memenuhi syarat Hapus Permanen tanpa satu pun
+     * keterangan tentang uang yang hilang dari laporan.
+     */
+    private function statusDariForm(): array
+    {
+        return array_values(array_diff(
+            SalesTransaction::STATUS_TRANSAKSI_OPTIONS,
+            [SalesTransaction::STATUS_DIBATALKAN],
+        ));
     }
 
     private function validatedRequest(Request $request): array
@@ -391,7 +517,7 @@ class SalesTransactionController extends Controller
         return $request->validate([
             'unit_id' => ['required', 'exists:business_units,id'],
             'tanggal' => ['required', 'date'],
-            'status_transaksi' => ['required', Rule::in(SalesTransaction::STATUS_TRANSAKSI_OPTIONS)],
+            'status_transaksi' => ['required', Rule::in($this->statusDariForm())],
             'customer_id' => ['nullable', 'exists:customers,id'],
             'customer_nama' => ['nullable', 'string', 'max:255'],
             'customer_hp' => ['nullable', 'string', 'max:30'],

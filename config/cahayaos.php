@@ -150,6 +150,58 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | PERINGATAN HPP TIDAK WAJAR (Penjualan & Tambah Produk Cepat)
+    |--------------------------------------------------------------------------
+    |
+    | Dua tingkat, keduanya PERINGATAN — tidak pernah menolak penyimpanan,
+    | karena menjual di bawah modal kadang memang keputusan bisnis:
+    |
+    |   1. HPP > harga jual                 -> "Periksa kembali nilai modal."
+    |   2. HPP >= jauh_kali x harga jual    -> ditambah "kemungkinan salah
+    |                                          ketik digit".
+    |
+    | Tingkat 2 lahir dari kasus nyata: HPP Rp9.500 terketik Rp9.500.000
+    | (1.000x harga jual). Kelipatan 10 dipilih karena salah ketik digit
+    | selalu menghasilkan kelipatan 10, 100, 1.000 — sedangkan jual rugi
+    | yang disengaja jarang melampaui 2-3x harga jual.
+    |
+    | Aturannya satu tempat: App\Models\SalesTransactionItem::peringatanHpp().
+    |
+    */
+
+    'hpp' => [
+        'jauh_kali' => (float) env('CAHAYAOS_HPP_JAUH_KALI', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | KATEGORI PENGELUARAN YANG MERUPAKAN PEMBELIAN STOK
+    |--------------------------------------------------------------------------
+    |
+    | Pengeluaran berkategori ini TETAP dicatat (uangnya memang keluar), tapi
+    | TIDAK mengurangi Laba Bersih di LabaRugiService.
+    |
+    | Biaya barang dagangan sudah masuk Laba Rugi lewat HPP: setiap item
+    | penjualan membawa harga_modal_snapshot. Kalau pembelian stok ikut
+    | dikurangkan juga, biaya barang yang sama terhitung dua kali. Kasus
+    | nyata 22-09-2026: Re-Stok Rp1.005.000 membuat laba bersih +401.798
+    | tampil -603.202, padahal ±Rp608.000 di antaranya sudah ada di HPP dan
+    | sisanya masih berupa barang di rak.
+    |
+    | Dicocokkan dengan kolom snapshot `kategori` di tabel pengeluaran.
+    | Kalau kategori master-nya diganti nama, tambahkan nama baru di sini —
+    | pengeluaran lama tetap menyimpan nama lamanya.
+    |
+    | Aturannya satu tempat: App\Models\Pengeluaran::scopeBebanUsaha().
+    |
+    */
+
+    'pengeluaran' => [
+        'kategori_pembelian_stok' => ['Re-Stok Produk'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | CATATAN: 'aktivitas_lapangan' SUDAH DIHAPUS
     |--------------------------------------------------------------------------
     |

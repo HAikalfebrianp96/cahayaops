@@ -165,7 +165,22 @@ class DashboardDanSiklusPendampinganTest extends TestCase
     {
         $this->actingAs($this->user('pendamping', 'lepas@akun.test'))
             ->get(route('dashboard'))
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Akun belum terhubung ke data Pendamping');
+    }
+
+    /**
+     * Dulu akun tanpa tautan jatuh ke panel Admin dan melihat binaan milik
+     * Pendamping lain. Nama binaan Pendamping A tidak boleh terlihat di sini.
+     */
+    public function test_pendamping_tanpa_tautan_tidak_melihat_data_pendamping_lain(): void
+    {
+        $this->actingAs($this->user('pendamping', 'lepas2@akun.test'))
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee($this->binaanA->nama_peserta)
+            ->assertViewMissing('stats')
+            ->assertViewMissing('ringkasanDampak');
     }
 
     // =====================================================================

@@ -87,7 +87,12 @@
                     @forelse ($pengeluaran as $p)
                         <tr class="border-b last:border-0">
                             <td class="py-1.5">{{ $p->tanggal->format('d-m-Y') }}</td>
-                            <td class="py-1.5">{{ $p->kategori }}</td>
+                            <td class="py-1.5">
+                                {{ $p->kategori }}
+                                @if ($p->isPembelianStok())
+                                    <span class="text-[11px] italic text-text-secondary">(pembelian stok — tidak mengurangi laba)</span>
+                                @endif
+                            </td>
                             <td class="py-1.5">{{ rupiah($p->nominal) }}</td>
                         </tr>
                     @empty

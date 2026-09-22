@@ -26,6 +26,7 @@ use App\Models\ParticipantMeasurement;
 use App\Models\Pendamping;
 use App\Models\PendampingTarget;
 use App\Models\PendampinganRecord;
+use App\Models\ProductService;
 use App\Models\Pengeluaran;
 use App\Models\SalesTransaction;
 use App\Models\TrainingRecord;
@@ -87,6 +88,10 @@ class AppServiceProvider extends ServiceProvider
         DanaHibahMasuk::observe(ActivityLogObserver::class);
         DanaHibahKeluar::observe(ActivityLogObserver::class);
         HppCalculation::observe(ActivityLogObserver::class);
+        // Master produk: harga modal & jualnya menjadi isian awal setiap
+        // baris penjualan. Tanpa jejak, HPP transaksi yang janggal tidak bisa
+        // ditelusuri ke asalnya — lewat Observer yang SAMA.
+        ProductService::observe(ActivityLogObserver::class);
         // Baseline/monitoring/endline adalah dasar SELURUH klaim perubahan
         // usaha dan seluruh perhitungan SROI di atasnya. Justru karena itu
         // perubahannya wajib berjejak — lewat Observer yang SAMA.

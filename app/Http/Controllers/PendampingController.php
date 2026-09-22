@@ -223,20 +223,9 @@ class PendampingController extends Controller
         // dikosongkan). Menghapus User berisiko kehilangan histori/audit
         // akun, padahal user dgn pendamping_id kosong otomatis tidak bisa
         // akses data peserta manapun lagi lewat canAccessParticipant().
-        if ($pendamping->user) {
-            $userId = $pendamping->user->id;
-            $userName = $pendamping->user->name;
-
-            $pendamping->user()->update(['pendamping_id' => null]);
-
-            ActivityLog::record(
-                action: 'account_unlinked',
-                modelType: 'User',
-                modelId: $userId,
-                description: 'Akun login dilepas dari data Pendamping (dihapus): ' . $userName,
-            );
-        }
-
+        // Penjaga DULU, baru melepas akun. Dulu urutannya terbalik: akun
+        // sudah dilepas sebelum penjaga menolak, sehingga penghapusan yang
+        // DITOLAK tetap membuat Pendamping kehilangan akses ke binaannya.
         $penghapusan = app(PenghapusanPermanenService::class);
         $alasan = $penghapusan->alasanTertahan($pendamping);
 
@@ -246,7 +235,23 @@ class PendampingController extends Controller
             return back()->with('error', $alasan);
         }
 
-        $ringkasan = $penghapusan->hapusDenganCatatan($pendamping);
+        $ringkasan = DB::transaction(function () use ($pendamping, $penghapusan) {
+            if ($pendamping->user) {
+                $userId = $pendamping->user->id;
+                $userName = $pendamping->user->name;
+
+                $pendamping->user()->update(['pendamping_id' => null]);
+
+                ActivityLog::record(
+                    action: 'account_unlinked',
+                    modelType: 'User',
+                    modelId: $userId,
+                    description: 'Akun login dilepas dari data Pendamping (dihapus): ' . $userName,
+                );
+            }
+
+            return $penghapusan->hapusDenganCatatan($pendamping);
+        });
 
         return redirect()
             ->route('pendampings.index')

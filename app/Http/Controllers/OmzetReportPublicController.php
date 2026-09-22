@@ -51,7 +51,7 @@ class OmzetReportPublicController extends Controller
                 // paling cepat membuat laporan omzet berhenti masuk sama sekali.
                 'hpp' => ['nullable', 'integer', 'min:0', 'lte:omzet'],
                 'biaya_operasional' => ['nullable', 'integer', 'min:0'],
-                'catatan' => ['nullable', 'string'],
+                'catatan' => ['nullable', 'string', 'max:2000'],
             ] + $this->aturanBukti(),
             [
                 'omzet.required' => 'Omzet wajib diisi.',

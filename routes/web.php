@@ -67,7 +67,9 @@ Route::post('/logout', [LoginController::class, 'destroy'])
 
 // Form laporan omzet PUBLIK (tanpa login, akses lewat token unik) — Tahap 3
 Route::get('/lapor-omzet/{token}', [OmzetReportPublicController::class, 'show'])->name('omzet.public.show');
-Route::post('/lapor-omzet/{token}', [OmzetReportPublicController::class, 'store'])->name('omzet.public.store');
+// Tanpa login, jadi dibatasi per IP: tautan yang bocor tidak boleh bisa
+// dipakai membanjiri laporan omzet peserta.
+Route::post('/lapor-omzet/{token}', [OmzetReportPublicController::class, 'store'])->middleware('throttle:20,1')->name('omzet.public.store');
 Route::get('/cek-simpanan', [AnggotaAksesController::class, 'showLogin'])->name('anggota-akses.login');
 Route::post('/cek-simpanan', [AnggotaAksesController::class, 'login'])->middleware('throttle:5,1')->name('anggota-akses.login.submit');
 Route::get('/cek-simpanan/hasil', [AnggotaAksesController::class, 'hasil'])->name('anggota-akses.hasil');

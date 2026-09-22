@@ -72,6 +72,34 @@ class Pengeluaran extends Model
     }
 
     /**
+     * Pengeluaran aktif yang MENGURANGI laba — semua kecuali pembelian stok.
+     * Biaya stok sudah masuk Laba Rugi lewat HPP saat barangnya terjual;
+     * lihat config cahayaos.pengeluaran.kategori_pembelian_stok.
+     */
+    public function scopeBebanUsaha($query)
+    {
+        return $query->aktif()->whereNotIn('kategori', self::kategoriPembelianStok());
+    }
+
+    /**
+     * Pengeluaran aktif berupa pembelian stok — dicatat, tidak mengurangi laba.
+     */
+    public function scopePembelianStok($query)
+    {
+        return $query->aktif()->whereIn('kategori', self::kategoriPembelianStok());
+    }
+
+    public static function kategoriPembelianStok(): array
+    {
+        return (array) config('cahayaos.pengeluaran.kategori_pembelian_stok', []);
+    }
+
+    public function isPembelianStok(): bool
+    {
+        return in_array($this->kategori, self::kategoriPembelianStok(), true);
+    }
+
+    /**
      * Siapa yang membatalkan. Kolomnya SENGAJA tidak fillable — nilainya
      * hanya boleh datang dari sesi yang sedang berjalan, tidak dari form.
      */

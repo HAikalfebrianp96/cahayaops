@@ -221,7 +221,11 @@ class PengaturanController extends Controller
         foreach (['logo_program', 'logo_ybm_pln'] as $field) {
             if ($request->hasFile($field)) {
                 $file = $request->file($field);
-                $filename = $field . '_' . time() . '.' . $file->getClientOriginalExtension();
+                // Ekstensi dari ISI berkas (MIME hasil deteksi), BUKAN dari nama
+                // kiriman klien. Folder ini berada di web root: gambar sah yang
+                // dinamai "x.php" akan lolos aturan 'image' lalu tersimpan
+                // sebagai skrip yang bisa dijalankan server.
+                $filename = $field . '_' . time() . '.' . ($file->guessExtension() ?: 'png');
                 $file->move($folder, $filename);
                 $setting->{$field} = $filename;
             }

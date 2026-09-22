@@ -65,7 +65,11 @@ class KoperasiSettingController extends Controller
             /** @var UploadedFile|null $file */
             $file = $request->file($field);
             if ($file) {
-                $filename = $field . '_' . time() . '.' . $file->getClientOriginalExtension();
+                // Ekstensi dari ISI berkas (MIME hasil deteksi), BUKAN dari nama
+                // kiriman klien. Folder ini berada di web root: gambar sah yang
+                // dinamai "x.php" akan lolos aturan 'image' lalu tersimpan
+                // sebagai skrip yang bisa dijalankan server.
+                $filename = $field . '_' . time() . '.' . ($file->guessExtension() ?: 'png');
                 $file->move($folder, $filename);
                 $validated[$field] = $filename;
             } else {

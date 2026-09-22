@@ -12,7 +12,7 @@
     {{-- ================= BUKU 1 — KEUANGAN USAHA (LABA RUGI) ================= --}}
     <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
         <h3 class="text-sm font-semibold text-text-main mb-1">Buku 1 — Keuangan Usaha</h3>
-        <p class="text-xs text-text-secondary mb-4">Ringkasan Laba Rugi dari transaksi Penjualan dan Pengeluaran. Model Titip Jual dihitung dari Fee Koperasi saja — nilai penjualan mitra TIDAK dihitung sebagai pendapatan koperasi.</p>
+        <p class="text-xs text-text-secondary mb-4">Ringkasan laba rugi dari transaksi Penjualan dan Pengeluaran. Harga modal/HPP menggunakan nilai yang tersimpan pada setiap item transaksi.</p>
 
         <form method="GET" class="flex flex-wrap gap-3 mb-5">
             <select name="tahun" class="rounded-lg border border-border-soft px-3 py-2 text-sm">
@@ -80,7 +80,12 @@
                     </p>
                 </div>
             </div>
-            <p class="text-xs text-text-secondary mb-5">Pengeluaran Operasional Koperasi ({{ rupiah($lr['total']['pengeluaran_operasional']) }}) sudah termasuk di Total Pengeluaran di atas, tapi tidak dibebankan ke unit manapun.</p>
+            <p class="text-xs text-text-secondary {{ $lr['total']['pembelian_stok'] > 0 ? 'mb-1' : 'mb-5' }}">Pengeluaran Operasional Koperasi ({{ rupiah($lr['total']['pengeluaran_operasional']) }}) sudah termasuk di Total Pengeluaran di atas, tapi tidak dibebankan ke unit manapun.</p>
+            @if ($lr['total']['pembelian_stok'] > 0)
+                {{-- Pembelian stok dicatat sebagai pengeluaran tapi tidak
+                     mengurangi laba: biaya barangnya sudah ada di Total HPP. --}}
+                <p class="text-xs text-text-secondary mb-5">Pembelian Stok ({{ rupiah($lr['total']['pembelian_stok']) }}) tercatat di Pengeluaran, tapi <strong>tidak</strong> termasuk Total Pengeluaran di atas — biaya barangnya masuk Laba Rugi lewat Total HPP saat barang terjual.</p>
+            @endif
 
             {{-- PERFORMA / LABA RUGI PER UNIT --}}
             <h4 class="text-xs font-semibold text-text-secondary mb-2">Laba Rugi per Unit</h4>
@@ -132,7 +137,15 @@
                 <div class="border border-border-soft rounded-xl p-4">
                     <h4 class="text-xs font-semibold text-text-secondary mb-2">Rekap Pengeluaran per Kategori</h4>
                     @forelse ($rekapKategori as $k)
-                        <div class="flex justify-between text-sm py-0.5"><span class="text-text-secondary">{{ $k->kategori }}</span><span class="font-semibold text-text-main">{{ rupiah($k->total) }}</span></div>
+                        <div class="flex justify-between text-sm py-0.5">
+                            <span class="text-text-secondary">
+                                {{ $k->kategori }}
+                                @if (in_array($k->kategori, \App\Models\Pengeluaran::kategoriPembelianStok(), true))
+                                    <span class="text-[11px] italic">(pembelian stok — tidak mengurangi laba)</span>
+                                @endif
+                            </span>
+                            <span class="font-semibold text-text-main">{{ rupiah($k->total) }}</span>
+                        </div>
                     @empty
                         <p class="text-sm text-text-secondary italic">Belum ada pengeluaran.</p>
                     @endforelse

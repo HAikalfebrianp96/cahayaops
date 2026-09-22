@@ -17,6 +17,9 @@ class LabaRugiService
      * - Item MILIK KOPERASI (fee_rate = 0) → Penjualan - HPP = Laba Kotor, seperti biasa.
      * - Transaksi Draft & Dibatalkan TIDAK DIHITUNG.
      * - Pengeluaran Dibatalkan TIDAK DIHITUNG.
+     * - Pengeluaran PEMBELIAN STOK (mis. "Re-Stok Produk") TIDAK mengurangi
+     *   laba — biayanya sudah masuk lewat HPP saat barang terjual. Nilainya
+     *   dilaporkan terpisah di total['pembelian_stok'].
      * - Pengeluaran Operasional Koperasi (business_unit_id null) TIDAK dibebankan
      *   otomatis ke unit manapun — cuma dikurangi di level total koperasi.
      */
@@ -61,10 +64,21 @@ class LabaRugiService
             }
         }
 
-        // Pengeluaran per unit
-        $pengeluaranQuery = Pengeluaran::aktif();
+        // Pengeluaran per unit — bebanUsaha(), BUKAN aktif(): pembelian stok
+        // tidak dikurangkan di sini karena biayanya sudah masuk lewat HPP.
+        $pengeluaranQuery = Pengeluaran::bebanUsaha();
         $this->applyPeriode($pengeluaranQuery, $tahun, $bulan, 'tanggal');
         $pengeluaranPeriode = (clone $pengeluaranQuery)->get();
+
+        // Pembelian stok periode ini — hanya informasi, tidak masuk rumus.
+        $pembelianStokQuery = Pengeluaran::pembelianStok();
+        $this->applyPeriode($pembelianStokQuery, $tahun, $bulan, 'tanggal');
+        if ($unitId === 'operasional') {
+            $pembelianStokQuery->whereNull('business_unit_id');
+        } elseif ($unitId) {
+            $pembelianStokQuery->where('business_unit_id', $unitId);
+        }
+        $pembelianStok = (float) $pembelianStokQuery->sum('nominal');
 
         $pengeluaranOperasional = 0.0;
         foreach ($pengeluaranPeriode as $p) {
@@ -101,6 +115,7 @@ class LabaRugiService
         }
         $total['pengeluaran_operasional'] = $pengeluaranOperasional;
         $total['pengeluaran_total'] = $total['pengeluaran'] + $pengeluaranOperasional;
+        $total['pembelian_stok'] = $pembelianStok;
         $total['laba_bersih'] = $total['kontribusi_usaha'] - $total['pengeluaran_total'];
         $total['margin'] = $total['penjualan'] > 0 ? ($total['laba_bersih'] / $total['penjualan']) * 100 : null;
 
@@ -115,7 +130,7 @@ class LabaRugiService
             'per_unit' => $perUnit,
             'unit_terbaik' => $unitTerbaik['nama'] ?? null,
             'ada_transaksi' => $transaksi->isNotEmpty(),
-            'ada_pengeluaran' => $pengeluaranPeriode->isNotEmpty(),
+            'ada_pengeluaran' => $pengeluaranPeriode->isNotEmpty() || $pembelianStok > 0,
         ];
     }
 

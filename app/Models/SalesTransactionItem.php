@@ -36,6 +36,47 @@ class SalesTransactionItem extends Model
         'subtotal' => 'decimal:2',
     ];
 
+    /**
+     * Mulai kelipatan ini, HPP dianggap "jauh" di atas harga jual — lebih
+     * mungkin salah ketik digit daripada keputusan menjual rugi. Diatur di
+     * config/cahayaos.php ('hpp.jauh_kali'); tidak pernah kurang dari 1.
+     */
+    public static function ambangHppJauh(): float
+    {
+        return max(1.0, (float) config('cahayaos.hpp.jauh_kali', 10));
+    }
+
+    /**
+     * PERINGATAN HPP TIDAK WAJAR — memperingatkan, TIDAK menolak.
+     *
+     * Pernah terjadi: HPP Rp9.500 terketik Rp9.500.000 pada 35 paper bag,
+     * dan satu baris itu membuat Laba Rugi koperasi minus Rp332 juta. Validasi
+     * lama hanya "angka, minimal 0", jadi tidak ada apa pun yang menahannya.
+     *
+     * Sengaja tidak menjadi galat validasi: menjual di bawah modal kadang
+     * memang keputusan bisnis (cuci gudang, barang rusak, promosi). Yang
+     * dicegah adalah salah ketik, bukan keputusannya.
+     *
+     * Aturan yang sama dipakai form (JavaScript) dan controller — kalimatnya
+     * dibentuk di sini supaya keduanya tidak berbeda.
+     */
+    public static function peringatanHpp(string $nama, float $hpp, float $hargaJual): ?string
+    {
+        if ($hpp <= $hargaJual) {
+            return null;
+        }
+
+        $pesan = 'Perhatian: HPP ' . rupiah($hpp) . ' lebih besar dari harga jual '
+            . rupiah($hargaJual) . ' (' . $nama . '). Periksa kembali nilai modal.';
+
+        if ($hargaJual > 0 && $hpp >= $hargaJual * self::ambangHppJauh()) {
+            $pesan .= ' HPP ini ' . number_format($hpp / $hargaJual, 0, ',', '.')
+                . '× harga jual — kemungkinan salah ketik digit.';
+        }
+
+        return $pesan;
+    }
+
     public function salesTransaction(): BelongsTo
     {
         return $this->belongsTo(SalesTransaction::class);

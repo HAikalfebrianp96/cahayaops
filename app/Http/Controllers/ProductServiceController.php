@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\PenghapusanPermanenService;
 use App\Models\BusinessUnit;
 use App\Models\ProductService;
+use App\Models\SalesTransactionItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -77,6 +78,10 @@ class ProductServiceController extends Controller
             'satuan' => $produk->satuan ?: '-',
             'harga_jual' => (float) $produk->harga_jual,
             'harga_modal' => (float) $produk->harga_modal,
+            // Produknya TETAP tersimpan — ini pengingat, bukan penolakan.
+            'peringatan' => SalesTransactionItem::peringatanHpp(
+                $produk->nama, (float) $produk->harga_modal, (float) $produk->harga_jual,
+            ),
         ]);
     }
 

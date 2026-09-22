@@ -15,9 +15,11 @@ use App\Models\SystemSetting;
 use App\Models\ParticipantMeasurement;
 use App\Models\PendampinganRecord;
 use App\Models\PendampingTarget;
+use App\Models\ProductService;
 use App\Models\TrainingRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class ActivityLogObserver
 {
@@ -49,6 +51,21 @@ class ActivityLogObserver
         SystemSetting::class => 'pengaturan_sistem',
         KoperasiSetting::class => 'pengaturan_koperasi',
         FinancialProxy::class => 'nilai_acuan',
+        // Harga di master produk menjadi HPP & harga jual bawaan setiap
+        // transaksi baru — lihat describe().
+        ProductService::class => 'product',
+    ];
+
+    /**
+     * Kolom master produk yang perubahannya dicatat DARI BERAPA MENJADI
+     * BERAPA. Harga dipakai sebagai isian awal setiap baris penjualan.
+     */
+    private const KOLOM_PRODUK = [
+        'kode' => 'kode',
+        'nama' => 'nama',
+        'satuan' => 'satuan',
+        'harga_modal' => 'HPP',
+        'harga_jual' => 'harga jual',
     ];
 
     /**
@@ -165,6 +182,10 @@ class ActivityLogObserver
                 : ucfirst($action) . ' Pengaturan Sistem — ' . implode(', ', $berubah);
         }
 
+        if ($model instanceof ProductService) {
+            return $this->describeProduk($action, $model);
+        }
+
         if ($model instanceof FinancialProxy) {
             // Nilai acuan menentukan angka dampak yang dilaporkan ke pemberi
             // dana. Mengubahnya mengubah hasil SROI tanpa satu pun data
@@ -219,5 +240,47 @@ class ActivityLogObserver
             ?? ('#' . $model->getKey());
 
         return ucfirst($action) . ' ' . class_basename($model) . ': ' . $label;
+    }
+
+    /**
+     * MASTER PRODUK — harga dicatat dari berapa menjadi berapa.
+     *
+     * Sebelum ini perubahan master produk tidak tercatat sama sekali. Ketika
+     * satu transaksi menyimpan HPP Rp9.500.000 sementara masternya kini
+     * Rp9.500, tidak ada cara memastikan apakah master itu pernah bernilai
+     * 9.500.000 atau angkanya diketik di baris penjualan.
+     */
+    private function describeProduk(string $action, ProductService $produk): string
+    {
+        $identitas = ucfirst($action) . ' Produk: ' . $produk->nama . ' (' . $produk->kode . ')';
+
+        if ($action === 'created') {
+            return $identitas . ' — HPP ' . rupiah($produk->harga_modal)
+                . ', harga jual ' . rupiah($produk->harga_jual);
+        }
+
+        if ($action !== 'updated') {
+            return $identitas;
+        }
+
+        $berubah = [];
+
+        foreach (array_keys($produk->getChanges()) as $kolom) {
+            if (! array_key_exists($kolom, self::KOLOM_PRODUK)) {
+                continue;
+            }
+
+            $lama = $produk->getOriginal($kolom);
+            $baru = $produk->getAttribute($kolom);
+
+            if (in_array($kolom, ['harga_modal', 'harga_jual'], true)) {
+                $lama = rupiah($lama);
+                $baru = rupiah($baru);
+            }
+
+            $berubah[] = self::KOLOM_PRODUK[$kolom] . ': ' . ($lama ?? '-') . ' -> ' . ($baru ?? '-');
+        }
+
+        return Str::limit($berubah === [] ? $identitas : $identitas . ' — ' . implode(', ', $berubah), 250);
     }
 }

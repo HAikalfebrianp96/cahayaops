@@ -60,10 +60,16 @@ class DashboardController extends Controller
         // akun lebih dulu, tapi pengaman itu ada di controller LAIN; halaman
         // pertama yang dilihat pengguna tidak boleh bergantung padanya.
         //
-        // Jatuh ke alur umum di bawah adalah jawaban yang benar: Pendamping
-        // tanpa tautan memang sudah ditangani di sana.
         if (Auth::user()->isPendamping() && Auth::user()->pendamping) {
             return $this->pendampingDashboard();
+        }
+
+        // Pendamping TANPA tautan dulu jatuh ke alur umum di bawah — yang
+        // ternyata panel Cahaya Preneur milik Admin: rekap seluruh peserta,
+        // pendampingan semua pendamping, dan ringkasan SROI. Akun seperti itu
+        // tidak punya binaan, jadi yang ditampilkan cukup langkah berikutnya.
+        if (Auth::user()->isPendamping()) {
+            return view('dashboard-pendamping-belum-tertaut', ['modul' => 'preneur']);
         }
 
         $isAdmin = Auth::user()->isAdmin();

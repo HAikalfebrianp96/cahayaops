@@ -49,7 +49,7 @@
         <thead><tr><th>Tanggal</th><th>Kategori</th><th>Nominal</th></tr></thead>
         <tbody>
             @forelse ($pengeluaran as $p)
-                <tr><td>{{ $p->tanggal->format('d-m-Y') }}</td><td>{{ $p->kategori }}</td><td>{{ rupiah($p->nominal) }}</td></tr>
+                <tr><td>{{ $p->tanggal->format('d-m-Y') }}</td><td>{{ $p->kategori }}@if ($p->isPembelianStok()) <i style="color:#666;">(pembelian stok — tidak mengurangi laba)</i>@endif</td><td>{{ rupiah($p->nominal) }}</td></tr>
             @empty
                 <tr><td colspan="3" style="text-align:center; color:#999; font-style:italic;">Belum ada pengeluaran.</td></tr>
             @endforelse

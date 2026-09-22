@@ -67,35 +67,79 @@
             @endif
         </dl>
 
-        {{-- ITEM TRANSAKSI --}}
+        {{-- ITEM TRANSAKSI
+
+             HPP per unit, Total HPP, dan Profit per baris tampil untuk yang
+             mengelola koperasi (Admin & Tim Koperasi — orang yang sama yang
+             mengisi HPP di form). Dulu HPP hanya terlihat di form Edit, jadi
+             HPP Rp9.500 yang terketik Rp9.500.000 tidak kelihatan dari halaman
+             ini — hanya terasa sebagai laba rugi yang minus ratusan juta.
+             Tidak pernah tampil di invoice pelanggan. --}}
+        @php
+            $lihatHpp = auth()->user()->bolehKelolaKoperasi();
+            $adaDiskonItem = $transaksi->items->contains(fn ($i) => (float) $i->diskon > 0);
+        @endphp
         <div class="overflow-x-auto -mx-1 px-1">
-            <table class="w-full text-sm min-w-[560px] mb-5">
+            <table class="w-full text-sm {{ $lihatHpp ? 'min-w-[820px]' : 'min-w-[560px]' }} mb-5">
             <thead>
                 <tr class="text-left text-text-secondary border-b border-border-soft">
-                    <th class="py-2 font-medium">Produk/Jasa</th>
-                    <th class="py-2 font-medium">Qty</th>
-                    <th class="py-2 font-medium">Harga</th>
-                    <th class="py-2 font-medium">Diskon</th>
-                    <th class="py-2 font-medium">Subtotal</th>
+                    <th class="py-2 pr-2 font-medium">Produk/Jasa</th>
+                    <th class="py-2 pr-2 font-medium text-right">Qty</th>
+                    <th class="py-2 pr-2 font-medium text-right">Harga Jual</th>
+                    @if ($adaDiskonItem)
+                        <th class="py-2 pr-2 font-medium text-right">Diskon</th>
+                    @endif
+                    <th class="py-2 pr-2 font-medium text-right">Total Penjualan</th>
+                    @if ($lihatHpp)
+                        <th class="py-2 pr-2 font-medium text-right">HPP / Modal per Unit</th>
+                        <th class="py-2 pr-2 font-medium text-right">Total HPP</th>
+                        <th class="py-2 font-medium text-right">Profit</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
                 @foreach ($transaksi->items as $item)
-                    <tr class="border-b border-border-soft last:border-0">
-                        <td class="py-2 text-text-main">
+                    @php
+                        $totalHppItem = $item->qty * (float) $item->harga_modal_snapshot;
+                        $profitItem = (float) $item->subtotal - $totalHppItem;
+                        $peringatanHpp = $lihatHpp
+                            ? \App\Models\SalesTransactionItem::peringatanHpp($item->nama_snapshot, (float) $item->harga_modal_snapshot, (float) $item->harga_jual_snapshot)
+                            : null;
+                    @endphp
+                    <tr class="border-b border-border-soft last:border-0 align-top">
+                        <td class="py-2 pr-2 text-text-main">
                             {{ $item->nama_snapshot }} <span class="text-xs text-text-secondary">({{ $item->jenis_snapshot }})</span>
-                            @if ((float) $item->fee_rate > 0 || (float) $item->hak_mitra_amount > 0)
-                                <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gold-light text-cahaya-accent">Titip Jual</span>
+                            @if ((float) $item->hak_mitra_amount > 0)
+                                <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gold-light text-cahaya-accent">Hak Mitra {{ rupiah($item->hak_mitra_amount) }}</span>
                             @endif
                             @if ($item->catatan)<br><span class="text-xs text-text-secondary">{{ $item->catatan }}</span>@endif
+                            @if ($peringatanHpp)<br><span class="text-xs text-status-warning font-medium">{{ $peringatanHpp }}</span>@endif
                         </td>
-                        <td class="py-2 text-text-secondary">{{ $item->qty }}</td>
-                        <td class="py-2 text-text-secondary">{{ rupiah($item->harga_jual_snapshot) }}</td>
-                        <td class="py-2 text-text-secondary">{{ rupiah($item->diskon) }}</td>
-                        <td class="py-2 font-medium text-text-main">{{ rupiah($item->subtotal) }}</td>
+                        <td class="py-2 pr-2 text-text-secondary text-right">{{ $item->qty }}</td>
+                        <td class="py-2 pr-2 text-text-secondary text-right">{{ rupiah($item->harga_jual_snapshot) }}</td>
+                        @if ($adaDiskonItem)
+                            <td class="py-2 pr-2 text-text-secondary text-right">{{ rupiah($item->diskon) }}</td>
+                        @endif
+                        <td class="py-2 pr-2 font-medium text-text-main text-right">{{ rupiah($item->subtotal) }}</td>
+                        @if ($lihatHpp)
+                            <td class="py-2 pr-2 text-text-secondary text-right">{{ rupiah($item->harga_modal_snapshot) }}</td>
+                            <td class="py-2 pr-2 text-text-secondary text-right">{{ rupiah($totalHppItem) }}</td>
+                            <td class="py-2 font-medium text-right {{ $profitItem < 0 ? 'text-status-danger' : 'text-cahaya-accent' }}">{{ rupiah($profitItem) }}</td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>
+            @if ($lihatHpp)
+                <tfoot>
+                    <tr class="border-t-2 border-border-soft font-semibold text-text-main">
+                        <td class="py-2 pr-2" colspan="{{ $adaDiskonItem ? 4 : 3 }}">Total Item</td>
+                        <td class="py-2 pr-2 text-right">{{ rupiah($transaksi->items->sum('subtotal')) }}</td>
+                        <td class="py-2 pr-2"></td>
+                        <td class="py-2 pr-2 text-right">{{ rupiah($transaksi->totalHpp()) }}</td>
+                        <td class="py-2 text-right {{ $transaksi->estimasiProfit() < 0 ? 'text-status-danger' : 'text-cahaya-accent' }}">{{ rupiah($transaksi->estimasiProfit()) }}</td>
+                    </tr>
+                </tfoot>
+            @endif
         </table>
         </div>
 
@@ -111,17 +155,20 @@
             <div class="flex justify-between {{ $transaksi->sisaPembayaran() > 0 ? 'text-status-danger' : '' }}"><span>Sisa</span><span>{{ rupiah($transaksi->sisaPembayaran()) }}</span></div>
         </div>
 
-        {{-- TITIP JUAL — hanya tampil kalau ada itemnya --}}
+        {{-- HAK MITRA — informasi terpisah, TIDAK mengurangi profit
+             (lihat SalesTransaction::estimasiProfit). Hanya tampil kalau ada. --}}
         @if ($transaksi->totalHakMitra() > 0)
             <div class="border-t border-dashed border-border-soft mt-4 pt-4 max-w-xs ml-auto">
-                <p class="text-xs text-text-secondary mb-1">Titip Jual</p>
-                <div class="flex justify-between text-sm text-text-secondary"><span>Fee Koperasi</span><span class="font-medium text-cahaya-accent">{{ rupiah($transaksi->totalFeeKoperasi()) }}</span></div>
+                <p class="text-xs text-text-secondary mb-1">Hak Mitra (informasi terpisah)</p>
+                @if ($transaksi->totalFeeKoperasi() > 0)
+                    <div class="flex justify-between text-sm text-text-secondary"><span>Fee Koperasi</span><span class="font-medium text-cahaya-accent">{{ rupiah($transaksi->totalFeeKoperasi()) }}</span></div>
+                @endif
                 <div class="flex justify-between text-sm text-text-secondary"><span>Hak Mitra</span><span class="font-medium text-text-main">{{ rupiah($transaksi->totalHakMitra()) }}</span></div>
             </div>
         @endif
 
-        {{-- INTERNAL/ADMIN SAJA — TIDAK PERNAH ditampilkan di invoice customer --}}
-        @if (auth()->user()->isAdmin())
+        {{-- INTERNAL — TIDAK PERNAH ditampilkan di invoice customer --}}
+        @if ($lihatHpp)
             <div class="border-t border-dashed border-border-soft mt-4 pt-4 max-w-xs ml-auto">
                 <p class="text-xs text-text-secondary mb-1">Internal (tidak tampil di invoice)</p>
                 <div class="flex justify-between text-sm text-text-secondary"><span>Total HPP</span><span>{{ rupiah($transaksi->totalHpp()) }}</span></div>

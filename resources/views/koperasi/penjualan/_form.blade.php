@@ -326,6 +326,8 @@
                 <button type="button" onclick="removeRow(this)" class="text-status-danger text-xs hover:underline">Hapus</button>
             </div>
         </div>
+        {{-- PERINGATAN HPP — diisi recomputeSummary(); tidak menahan penyimpanan. --}}
+        <p class="hpp-warning hidden text-xs text-status-warning font-medium"></p>
         {{-- HAK MITRA — satu isian opsional, bukan jenis transaksi.
 
              Dulu baris ini memaksa memilih "Milik Koperasi" atau "Titip Jual"
@@ -367,6 +369,8 @@
                 <button type="button" onclick="removeRow(this)" class="text-status-danger text-xs hover:underline">Hapus</button>
             </div>
         </div>
+        {{-- PERINGATAN HPP — diisi recomputeSummary(); tidak menahan penyimpanan. --}}
+        <p class="hpp-warning hidden text-xs text-status-warning font-medium"></p>
         {{-- HAK MITRA — satu isian opsional, bukan jenis transaksi.
 
              Dulu baris ini memaksa memilih "Milik Koperasi" atau "Titip Jual"
@@ -482,6 +486,11 @@ function simpanProdukBaru() {
         return;
     }
 
+    const pesanPb = pesanHpp(nama, parseFloat(hargaModal), parseFloat(hargaJual));
+    if (pesanPb && ! confirm(pesanPb + '\n\nTetap simpan produk ini?')) {
+        return;
+    }
+
     if (! QUICK_PRODUK_URL) {
         alert('Unit usaha transaksi ini sudah diarsipkan, jadi produk baru tidak bisa ditambahkan ke dalamnya.\n\nPakai baris "Item Manual" untuk mencatat barang yang tidak ada di katalog.');
         return;
@@ -523,6 +532,49 @@ function simpanProdukBaru() {
 function formatRp(n) {
     return 'Rp' + Math.round(n).toLocaleString('id-ID');
 }
+
+// Kalimatnya disamakan dengan SalesTransactionItem::peringatanHpp() —
+// peringatan saja, transaksi tetap boleh disimpan.
+const HPP_JAUH_KALI = @json(\App\Models\SalesTransactionItem::ambangHppJauh());
+
+function pesanHpp(nama, hpp, hargaJual) {
+    if (! (hpp > hargaJual)) return null;
+    let pesan = 'Perhatian: HPP ' + formatRp(hpp) + ' lebih besar dari harga jual ' + formatRp(hargaJual)
+        + (nama ? ' (' + nama + ')' : '') + '. Periksa kembali nilai modal.';
+    if (hargaJual > 0 && hpp >= hargaJual * HPP_JAUH_KALI) {
+        pesan += ' HPP ini ' + Math.round(hpp / hargaJual).toLocaleString('id-ID') + '× harga jual — kemungkinan salah ketik digit.';
+    }
+    return pesan;
+}
+
+function namaBaris(row) {
+    const select = row.querySelector('.produk-select');
+    if (select) {
+        const opt = select.selectedOptions[0];
+        return opt && opt.value ? opt.textContent.trim() : '';
+    }
+    return (row.querySelector('.input-nama')?.value || '').trim();
+}
+
+function peringatanSemuaBaris() {
+    const daftar = [];
+    document.querySelectorAll('#masterItemsContainer .item-row, #manualItemsContainer .item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.input-qty')?.value || 0);
+        if (qty <= 0) return;
+        const pesan = pesanHpp(namaBaris(row),
+            parseFloat(row.querySelector('.input-hpp')?.value || 0),
+            parseFloat(row.querySelector('.input-harga')?.value || 0));
+        if (pesan) daftar.push(pesan);
+    });
+    return daftar;
+}
+
+document.getElementById('formPenjualan').addEventListener('submit', function (e) {
+    const daftar = peringatanSemuaBaris();
+    if (daftar.length && ! confirm(daftar.join('\n\n') + '\n\nTetap simpan transaksi ini?')) {
+        e.preventDefault();
+    }
+});
 
 function addMasterRow(prefill) {
     const tpl = document.getElementById('templateMasterRow').content.cloneNode(true);
@@ -665,6 +717,13 @@ function recomputeSummary() {
         } else {
             const label = row.querySelector('.subtotal-label');
             if (label) label.textContent = 'Rp0';
+        }
+
+        const warnEl = row.querySelector('.hpp-warning');
+        if (warnEl) {
+            const pesan = qty > 0 ? pesanHpp(namaBaris(row), hpp, harga) : null;
+            warnEl.textContent = pesan || '';
+            warnEl.classList.toggle('hidden', ! pesan);
         }
     });
 

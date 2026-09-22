@@ -532,6 +532,17 @@
                 @endif
 
                 {{--
+                    PERINGATAN — tindakannya BERHASIL, tapi ada yang patut
+                    diperiksa ulang (mis. HPP lebih besar dari harga jual).
+                    Bukan galat: datanya sudah tersimpan.
+                --}}
+                @if (session('warning'))
+                    <div class="mb-4 rounded-xl bg-gold-light border border-status-warning/40 px-4 py-3 text-sm text-text-main no-print">
+                        {{ session('warning') }}
+                    </div>
+                @endif
+
+                {{--
                     PESAN GAGAL. Sebagian besar berasal dari penolakan hapus
                     permanen: "Peserta ini punya 1 laporan omzet ... tidak bisa
                     dihapus."
