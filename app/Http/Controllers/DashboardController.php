@@ -938,6 +938,8 @@ class DashboardController extends Controller
         $stats['laba_kotor_tahun_ini'] = $lr['total']['laba_kotor'];
         $stats['pengeluaran_tahun_ini'] = $lr['total']['pengeluaran_total'];
         $stats['piutang_aktif'] = $lr['total']['piutang'];
+        // Bukan KPI: uang keluar yang biayanya baru masuk laba lewat HPP.
+        $stats['pembelian_stok'] = $lr['total']['pembelian_stok'];
         $stats['laba_bersih_tahun_ini'] = $lr['total']['laba_bersih'];
         $stats['unit_terbaik'] = $lr['unit_terbaik'];
         $stats['ada_transaksi_tahun_ini'] = $lr['ada_transaksi'];

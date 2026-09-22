@@ -74,6 +74,23 @@
         <p class="text-xs text-text-secondary mb-1">Total Pengeluaran (sesuai filter di atas)</p>
         <p class="text-2xl font-bold text-koperasi-primary mb-4">{{ rupiah($totalPeriode) }}</p>
 
+        {{-- Dua kelompok dengan perlakuan laba-rugi berbeda. Keduanya tetap
+             uang keluar, dan jumlahnya sama dengan total di atas. --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
+            <div class="border border-border-soft rounded-lg p-3">
+                <p class="text-xs text-text-secondary">Pengeluaran Operasional</p>
+                <p class="font-bold text-text-main">{{ rupiah($totalOperasional) }}</p>
+                <p class="text-[11px] text-text-secondary mt-0.5">Mengurangi Laba Bersih.</p>
+            </div>
+            <div class="border border-border-soft rounded-lg p-3">
+                <p class="text-xs text-text-secondary">Pembelian/Re-Stok Produk</p>
+                <p class="font-bold text-text-main">{{ rupiah($totalPembelianStok) }}</p>
+                <p class="text-[11px] text-text-secondary mt-0.5">Tidak langsung mengurangi laba — biayanya menjadi HPP saat produk terjual.</p>
+            </div>
+        </div>
+
+        <p class="text-xs text-text-secondary mb-2">Per unit usaha</p>
+
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             @foreach ($units as $u)
                 <div class="border border-border-soft rounded-lg p-3">
@@ -108,7 +125,12 @@
                     <tr class="border-b last:border-0 hover:bg-surface-bg cursor-pointer" onclick="window.location='{{ route('koperasi.pengeluaran.show', $r) }}'">
                         <td class="py-2 px-4">{{ $r->tanggal->format('d-m-Y') }}</td>
                         <td class="py-2 px-4">{{ $r->labelUnit() }}</td>
-                        <td class="py-2 px-4">{{ $r->kategori }}</td>
+                        <td class="py-2 px-4">
+                            {{ $r->kategori }}
+                            @if ($r->isPembelianStok())
+                                <span class="block text-[11px] text-text-secondary">Pembelian stok</span>
+                            @endif
+                        </td>
                         <td class="py-2 px-4">{{ rupiah($r->nominal) }}</td>
                         <td class="py-2 px-4">{{ $r->metode_pembayaran }}</td>
                         <td class="py-2 px-4">

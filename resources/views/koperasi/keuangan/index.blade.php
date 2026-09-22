@@ -44,14 +44,20 @@
                 <p class="text-xs text-text-secondary">Belum ada transaksi pada periode ini.</p>
             </div>
         @else
-            {{-- RINGKASAN LABA RUGI --}}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+            {{-- KEUANGAN USAHA — enam angka yang sama dengan Dashboard Koperasi
+                 (satu hasil LabaRugiService, filter yang sama):
+                   Laba Kotor  = Total Penjualan - HPP Terjual
+                   Laba Bersih = Laba Kotor - Pengeluaran Operasional
+                 Pembelian stok TIDAK termasuk Pengeluaran Operasional — lihat
+                 bagian Arus Kas Pembelian Stok di bawah. Fee Koperasi & Hak
+                 Mitra tetap ada di Rekap Penjualan. --}}
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-2">
                 <div class="border border-border-soft rounded-xl p-4">
                     <p class="text-xs text-text-secondary mb-1">Total Penjualan</p>
                     <p class="text-base font-bold text-text-main">{{ rupiah($lr['total']['penjualan']) }}</p>
                 </div>
                 <div class="border border-border-soft rounded-xl p-4">
-                    <p class="text-xs text-text-secondary mb-1">Total HPP</p>
+                    <p class="text-xs text-text-secondary mb-1">HPP Terjual</p>
                     <p class="text-base font-bold text-text-main">{{ rupiah($lr['total']['hpp']) }}</p>
                 </div>
                 <div class="border border-border-soft rounded-xl p-4">
@@ -59,18 +65,14 @@
                     <p class="text-base font-bold text-status-info">{{ rupiah($lr['total']['laba_kotor']) }}</p>
                 </div>
                 <div class="border border-border-soft rounded-xl p-4">
-                    <p class="text-xs text-text-secondary mb-1">Total Fee Koperasi</p>
-                    <p class="text-base font-bold text-cahaya-accent">{{ rupiah($lr['total']['fee_koperasi']) }}</p>
-                </div>
-                <div class="border border-border-soft rounded-xl p-4">
-                    <p class="text-xs text-text-secondary mb-1">Total Hak Mitra</p>
-                    <p class="text-base font-bold text-text-secondary">{{ rupiah($lr['total']['hak_mitra']) }}</p>
-                </div>
-                <div class="border border-border-soft rounded-xl p-4">
-                    <p class="text-xs text-text-secondary mb-1">Total Pengeluaran</p>
+                    <p class="text-xs text-text-secondary mb-1">Pengeluaran Operasional</p>
                     <p class="text-base font-bold text-status-danger">{{ rupiah($lr['total']['pengeluaran_total']) }}</p>
                 </div>
-                <div class="border border-border-soft rounded-xl p-4 bg-cahaya-primary col-span-2">
+                <div class="border border-border-soft rounded-xl p-4">
+                    <p class="text-xs text-text-secondary mb-1">Piutang Aktif</p>
+                    <p class="text-base font-bold text-cahaya-accent">{{ rupiah($lr['total']['piutang']) }}</p>
+                </div>
+                <div class="border border-border-soft rounded-xl p-4 bg-cahaya-primary">
                     <p class="text-xs text-white/70 mb-1">Laba Bersih</p>
                     <p class="text-xl font-bold {{ $lr['total']['laba_bersih'] >= 0 ? 'text-white' : 'text-red-300' }}">
                         {{ rupiah($lr['total']['laba_bersih']) }}
@@ -80,12 +82,20 @@
                     </p>
                 </div>
             </div>
-            <p class="text-xs text-text-secondary {{ $lr['total']['pembelian_stok'] > 0 ? 'mb-1' : 'mb-5' }}">Pengeluaran Operasional Koperasi ({{ rupiah($lr['total']['pengeluaran_operasional']) }}) sudah termasuk di Total Pengeluaran di atas, tapi tidak dibebankan ke unit manapun.</p>
-            @if ($lr['total']['pembelian_stok'] > 0)
-                {{-- Pembelian stok dicatat sebagai pengeluaran tapi tidak
-                     mengurangi laba: biaya barangnya sudah ada di Total HPP. --}}
-                <p class="text-xs text-text-secondary mb-5">Pembelian Stok ({{ rupiah($lr['total']['pembelian_stok']) }}) tercatat di Pengeluaran, tapi <strong>tidak</strong> termasuk Total Pengeluaran di atas — biaya barangnya masuk Laba Rugi lewat Total HPP saat barang terjual.</p>
-            @endif
+            <p class="text-xs text-text-secondary mb-5">Pengeluaran tanpa unit usaha / Operasional Koperasi ({{ rupiah($lr['total']['pengeluaran_operasional']) }}) sudah termasuk di Pengeluaran Operasional di atas, tapi tidak dibebankan ke unit manapun.</p>
+
+            {{-- ARUS KAS PEMBELIAN STOK — terpisah dari Keuangan Usaha supaya
+                 tidak terbaca sebagai angka yang tidak sinkron. Uangnya
+                 memang keluar, tapi biayanya masuk laba-rugi lewat HPP Terjual
+                 saat barang terjual — dihitung sekali, bukan dua kali. --}}
+            <div class="border border-dashed border-border-soft rounded-xl p-4 mb-6">
+                <h4 class="text-xs font-semibold text-text-secondary mb-2">Arus Kas Pembelian Stok</h4>
+                <div class="flex justify-between text-sm">
+                    <span class="text-text-secondary">Pembelian/Re-Stok Produk</span>
+                    <span class="font-semibold text-text-main">{{ rupiah($lr['total']['pembelian_stok']) }}</span>
+                </div>
+                <p class="text-xs text-text-secondary mt-2">Pembelian stok tercatat sebagai pengeluaran kas, namun tidak dibebankan langsung ke laba-rugi. Biaya masuk HPP saat barang terjual.</p>
+            </div>
 
             {{-- PERFORMA / LABA RUGI PER UNIT --}}
             <h4 class="text-xs font-semibold text-text-secondary mb-2">Laba Rugi per Unit</h4>

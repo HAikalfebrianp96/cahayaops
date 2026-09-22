@@ -29,6 +29,17 @@ class PengeluaranController extends Controller
         $this->applyFilters($summaryQuery, $request);
         $totalPeriode = (float) (clone $summaryQuery)->sum('nominal');
 
+        // Dipecah dengan aturan yang SAMA dengan LabaRugiService: pembelian
+        // stok tetap uang keluar, tapi tidak mengurangi laba (biayanya masuk
+        // HPP saat barang terjual). Jumlah keduanya = $totalPeriode.
+        $operasionalQuery = Pengeluaran::bebanUsaha();
+        $this->applyFilters($operasionalQuery, $request);
+        $totalOperasional = (float) $operasionalQuery->sum('nominal');
+
+        $pembelianStokQuery = Pengeluaran::pembelianStok();
+        $this->applyFilters($pembelianStokQuery, $request);
+        $totalPembelianStok = (float) $pembelianStokQuery->sum('nominal');
+
         $breakdown = (clone $summaryQuery)
             ->selectRaw('business_unit_id, SUM(nominal) as total')
             ->groupBy('business_unit_id')
@@ -45,6 +56,8 @@ class PengeluaranController extends Controller
             'kategoriSaran' => Pengeluaran::query()->select('kategori')->distinct()->orderBy('kategori')->pluck('kategori'),
             'metodeOptions' => Pengeluaran::METODE_OPTIONS,
             'totalPeriode' => $totalPeriode,
+            'totalOperasional' => $totalOperasional,
+            'totalPembelianStok' => $totalPembelianStok,
             'breakdown' => $breakdown,
             'filters' => $request->only(['tahun', 'bulan', 'unit_id', 'kategori', 'metode_pembayaran']),
         ]);

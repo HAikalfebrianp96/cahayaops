@@ -64,7 +64,7 @@
             <p class="text-xl font-bold text-status-info">{{ rupiah($stats['laba_kotor_tahun_ini']) }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
-            <p class="text-xs font-medium text-text-secondary mb-2">Pengeluaran</p>
+            <p class="text-xs font-medium text-text-secondary mb-2">Pengeluaran Operasional</p>
             <p class="text-xl font-bold text-status-danger">{{ rupiah($stats['pengeluaran_tahun_ini']) }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-5">
@@ -82,6 +82,13 @@
                 </p>
             @endif
         </div>
+    </div>
+
+    {{-- PEMBELIAN STOK — bukan KPI. Uangnya keluar, tapi biayanya baru masuk
+         laba lewat HPP Terjual; tetap terlihat supaya tidak dikira hilang. --}}
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-xl border border-dashed border-border-soft bg-white px-4 py-3">
+        <p class="text-sm text-text-secondary">Arus Kas Pembelian Stok <span class="font-semibold text-text-main ml-1">{{ rupiah($stats['pembelian_stok']) }}</span></p>
+        <p class="text-[11px] text-text-secondary">Pembelian stok tidak mengurangi laba saat pembelian. Biayanya menjadi HPP ketika produk terjual.</p>
     </div>
 
     {{-- 7. PERFORMA UNIT USAHA --}}

@@ -172,6 +172,40 @@ class DashboardKoperasiKpiTest extends TestCase
         $this->assertEquals(10_000, app(LabaRugiService::class)->hitung()['total']['hak_mitra']);
     }
 
+    public function test_dashboard_dan_keuangan_sama_saat_ada_re_stok(): void
+    {
+        $this->jual($this->unitA, '2026-07-01', 10, 20_000, 17_000);
+        $this->jual($this->unitA, '2026-07-02', 1, 50_000, 30_000, 'DP', 20_000);
+        $this->keluar($this->unitA, '2026-07-03', 12_000);
+        Pengeluaran::create([
+            'tanggal' => '2026-07-04', 'business_unit_id' => $this->unitA->id,
+            'kategori' => 'Re-Stok Produk', 'nominal' => 340_000, 'status' => Pengeluaran::STATUS_AKTIF,
+        ]);
+
+        $filter = ['tahun' => '2026', 'bulan' => '7', 'unit_id' => (string) $this->unitA->id];
+        $dashboard = $this->dashboard($filter);
+        $stats = $dashboard->viewData('stats');
+        $lr = $this->actingAs($this->admin)->get(route('koperasi.keuangan.index', $filter))->viewData('lr')['total'];
+
+        // Pengeluaran Operasional tanpa Re-Stok; Re-Stok tetap terlihat terpisah.
+        $this->assertEquals(12_000, $stats['pengeluaran_tahun_ini']);
+        $this->assertEquals(340_000, $stats['pembelian_stok']);
+        $this->assertEquals(30_000, $stats['piutang_aktif']);
+        $this->assertEquals(250_000 - 200_000 - 12_000, $stats['laba_bersih_tahun_ini']);
+
+        // Tujuh angka, dua halaman, satu sumber.
+        foreach ([
+            'penjualan_tahun_ini' => 'penjualan', 'hpp_tahun_ini' => 'hpp', 'laba_kotor_tahun_ini' => 'laba_kotor',
+            'pengeluaran_tahun_ini' => 'pengeluaran_total', 'piutang_aktif' => 'piutang',
+            'laba_bersih_tahun_ini' => 'laba_bersih', 'pembelian_stok' => 'pembelian_stok',
+        ] as $kunciDashboard => $kunciKeuangan) {
+            $this->assertEquals($lr[$kunciKeuangan], $stats[$kunciDashboard], $kunciDashboard);
+        }
+
+        $dashboard->assertSeeInOrder(['Arus Kas Pembelian Stok', 'Rp340.000'])
+            ->assertSee('Pembelian stok tidak mengurangi laba saat pembelian. Biayanya menjadi HPP ketika produk terjual.');
+    }
+
     public function test_label_periode_mengikuti_filter(): void
     {
         $this->dashboard()->assertSee('Periode: Tahun 2026, semua bulan');

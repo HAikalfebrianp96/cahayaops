@@ -147,6 +147,27 @@ class PembelianStokTidakDihitungGandaTest extends TestCase
         $this->assertEquals(357_000, (float) Pengeluaran::pembelianStok()->sum('nominal'));
     }
 
+    public function test_halaman_pengeluaran_memisahkan_operasional_dan_pembelian_stok(): void
+    {
+        $this->keluar('Re-Stok Produk', 357_000);
+        $this->keluar('Listrik', 50_000);
+        $this->keluar('Re-Stok Produk', 90_000, Pengeluaran::STATUS_DIBATALKAN);
+
+        $halaman = $this->actingAs($this->admin)->get(route('koperasi.pengeluaran.index'))->assertOk();
+
+        // Total uang keluar tetap utuh; keduanya tetap terlihat di daftar.
+        $this->assertEquals(407_000, $halaman->viewData('totalPeriode'));
+        $this->assertEquals(50_000, $halaman->viewData('totalOperasional'));
+        $this->assertEquals(357_000, $halaman->viewData('totalPembelianStok'));
+        $this->assertEquals(
+            $halaman->viewData('totalPeriode'),
+            $halaman->viewData('totalOperasional') + $halaman->viewData('totalPembelianStok'),
+        );
+
+        $halaman->assertSeeInOrder(['Pengeluaran Operasional', 'Rp50.000', 'Pembelian/Re-Stok Produk', 'Rp357.000'])
+            ->assertSee('Pembelian stok');
+    }
+
     public function test_halaman_keuangan_menerangkan_pembelian_stok(): void
     {
         $this->keluar('Re-Stok Produk', 357_000);
@@ -155,8 +176,11 @@ class PembelianStokTidakDihitungGandaTest extends TestCase
         $this->actingAs($this->admin)
             ->get(route('koperasi.keuangan.index'))
             ->assertOk()
-            ->assertSee('Pembelian Stok (Rp357.000)', false)
-            ->assertSee('pembelian stok — tidak mengurangi laba')
-            ->assertSee('Rp63.000');
+            // Keuangan Usaha: Pengeluaran Operasional Rp0, Laba Bersih Rp63.000;
+            // pembelian stok tampil di bagian Arus Kas Pembelian Stok.
+            ->assertSeeInOrder(['Pengeluaran Operasional', 'Rp0', 'Laba Bersih', 'Rp63.000'])
+            ->assertSeeInOrder(['Arus Kas Pembelian Stok', 'Pembelian/Re-Stok Produk', 'Rp357.000'])
+            ->assertSee('Pembelian stok tercatat sebagai pengeluaran kas, namun tidak dibebankan langsung ke laba-rugi.')
+            ->assertSee('pembelian stok — tidak mengurangi laba');
     }
 }
