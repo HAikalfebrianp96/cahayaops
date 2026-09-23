@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\BusinessUnit;
 use App\Models\Pengeluaran;
+use App\Models\ProductService;
 use App\Models\SalesTransaction;
+use App\Models\SalesTransactionItem;
 
 class LabaRugiService
 {
@@ -141,6 +143,73 @@ class LabaRugiService
             'ada_transaksi' => $transaksi->isNotEmpty(),
             'ada_pengeluaran' => $pengeluaranPeriode->isNotEmpty() || $pembelianStok > 0,
         ];
+    }
+
+    /**
+     * PRODUK TERLARIS — peringkat produk menurut JUMLAH UNIT TERJUAL.
+     *
+     * Hanya membaca; memakai aturan yang SAMA dengan hitung() supaya
+     * angkanya sejalan dengan KPI Total Penjualan & HPP Terjual:
+     * - Transaksi Draft & Dibatalkan tidak dihitung.
+     * - Periode (applyPeriode) dan filter unit identik; 'operasional' tidak
+     *   menyaring transaksi, persis seperti hitung().
+     * - Transaksi milik unit yang sudah dihapus (soft delete) dilewati,
+     *   sama seperti hitung() yang hanya mengenal unit yang masih ada.
+     * - Omzet = SUM(subtotal), HPP = SUM(qty x harga_modal_snapshot).
+     *
+     * Satu query agregat (GROUP BY), bukan query per produk. Item dikelompokkan
+     * per product_service_id; item tanpa produk master dikelompokkan per
+     * nama_snapshot. Produk dengan total qty 0 tidak ikut peringkat.
+     *
+     * @return array<int, array{nama: string, qty: int, omzet: float, hpp: float, profit: float}>
+     */
+    public function produkTerlaris(string $tahun = 'default', string $bulan = 'default', ?string $unitId = null, int $limit = 5): array
+    {
+        $query = SalesTransactionItem::query()
+            ->join('sales_transactions as st', 'st.id', '=', 'sales_transaction_items.sales_transaction_id')
+            ->whereNotIn('st.status_transaksi', ['Draft', 'Dibatalkan'])
+            ->whereIn('st.unit_id', BusinessUnit::select('id'))
+            ->groupBy('sales_transaction_items.product_service_id', 'sales_transaction_items.nama_snapshot')
+            ->selectRaw('sales_transaction_items.product_service_id as produk_id')
+            ->selectRaw('sales_transaction_items.nama_snapshot as nama')
+            ->selectRaw('SUM(sales_transaction_items.qty) as qty')
+            ->selectRaw('SUM(sales_transaction_items.subtotal) as omzet')
+            ->selectRaw('SUM(sales_transaction_items.qty * sales_transaction_items.harga_modal_snapshot) as hpp');
+        $this->applyPeriode($query, $tahun, $bulan, 'st.tanggal');
+
+        if ($unitId && $unitId !== 'operasional') {
+            $query->where('st.unit_id', $unitId);
+        }
+
+        // Satu produk bisa muncul dengan beberapa nama_snapshot (produk
+        // pernah diganti nama) — gabungkan per produk di sini.
+        $gabung = [];
+        foreach ($query->toBase()->get() as $row) {
+            $kunci = $row->produk_id !== null ? 'p' . $row->produk_id : 'n' . $row->nama;
+            $gabung[$kunci] ??= ['produk_id' => $row->produk_id, 'nama' => $row->nama, 'qty' => 0, 'omzet' => 0.0, 'hpp' => 0.0];
+            $gabung[$kunci]['qty'] += (int) $row->qty;
+            $gabung[$kunci]['omzet'] += (float) $row->omzet;
+            $gabung[$kunci]['hpp'] += (float) $row->hpp;
+        }
+
+        $teratas = collect($gabung)
+            ->filter(fn ($p) => $p['qty'] > 0)
+            ->sortBy([['qty', 'desc'], ['omzet', 'desc'], ['nama', 'asc']])
+            ->take($limit)
+            ->values();
+
+        // Nama master terkini (termasuk produk yang sudah dihapus) — satu query.
+        $namaMaster = ProductService::withTrashed()
+            ->whereIn('id', $teratas->pluck('produk_id')->filter()->all())
+            ->pluck('nama', 'id');
+
+        return $teratas->map(fn ($p) => [
+            'nama' => $namaMaster[$p['produk_id']] ?? $p['nama'],
+            'qty' => $p['qty'],
+            'omzet' => $p['omzet'],
+            'hpp' => $p['hpp'],
+            'profit' => $p['omzet'] - $p['hpp'],
+        ])->all();
     }
 
     private function kosongkanUnit(string $nama): array

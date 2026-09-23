@@ -945,6 +945,9 @@ class DashboardController extends Controller
         $stats['ada_transaksi_tahun_ini'] = $lr['ada_transaksi'];
         $perUnit = collect($lr['per_unit'])->sortByDesc('laba_bersih')->values();
 
+        // Produk Terlaris — filter Tahun/Bulan/Unit yang sama dengan KPI.
+        $produkTerlaris = $this->labaRugiService->produkTerlaris($tahun, $bulan, $unitId);
+
         $filters = ['tahun' => $tahun, 'bulan' => $bulan, 'unit_id' => $unitId];
         $units = BusinessUnit::orderBy('nama')->get();
 
@@ -968,7 +971,7 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return compact('stats', 'perUnit', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units');
+        return compact('stats', 'perUnit', 'produkTerlaris', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units');
     }
 
     /**

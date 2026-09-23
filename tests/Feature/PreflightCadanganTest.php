@@ -154,6 +154,11 @@ class PreflightCadanganTest extends TestCase
     {
         $this->buatCadangan('backup-baru.sql', 0);
 
+        // Rincian angka hanya dicetak saat pemeriksaan jadi PERINGATAN.
+        // Ambang dibuat mustahil dipenuhi supaya hasilnya tidak bergantung
+        // pada sisa disk mesin yang menjalankan test.
+        config(['cahayaos.backup.min_disk_mb' => PHP_INT_MAX >> 30]);
+
         $keluaran = $this->preflight();
 
         $this->assertStringContainsString('Ruang disk tersisa', $keluaran);

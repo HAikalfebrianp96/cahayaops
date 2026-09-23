@@ -91,6 +91,48 @@
         <p class="text-[11px] text-text-secondary">Pembelian stok tidak mengurangi laba saat pembelian. Biayanya menjadi HPP ketika produk terjual.</p>
     </div>
 
+    {{-- PRODUK TERLARIS — peringkat menurut JUMLAH UNIT TERJUAL, filter
+         periode & unit yang sama dengan keenam KPI (LabaRugiService). --}}
+    <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+        <div class="mb-4">
+            <h3 class="text-[15px] font-semibold text-text-main">Produk Terlaris</h3>
+            <p class="text-[11px] text-text-secondary mt-0.5">{{ $labelPeriode }} · berdasarkan jumlah terjual</p>
+        </div>
+
+        @if (empty($produkTerlaris))
+            <p class="text-sm text-text-secondary italic">Belum ada data penjualan.</p>
+        @else
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-text-secondary border-b border-border-soft">
+                            <th class="py-2 font-medium w-10">#</th>
+                            <th class="py-2 font-medium">Produk</th>
+                            <th class="py-2 font-medium text-right">Terjual</th>
+                            <th class="py-2 font-medium text-right">Omzet</th>
+                            <th class="py-2 font-medium text-right hidden sm:table-cell">Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($produkTerlaris as $i => $p)
+                            <tr class="border-b border-border-soft last:border-0">
+                                <td class="py-2.5 font-semibold {{ $i === 0 ? 'text-cahaya-accent' : 'text-text-secondary' }}">{{ $i + 1 }}</td>
+                                <td class="py-2.5 font-medium text-text-main">{{ $p['nama'] }}</td>
+                                <td class="py-2.5 text-right font-bold text-text-main whitespace-nowrap">{{ number_format($p['qty'], 0, ',', '.') }} terjual</td>
+                                <td class="py-2.5 text-right text-text-secondary whitespace-nowrap">{{ rupiah($p['omzet']) }}</td>
+                                <td class="py-2.5 text-right whitespace-nowrap hidden sm:table-cell {{ $p['profit'] >= 0 ? 'text-status-success' : 'text-status-danger' }}">{{ rupiah($p['profit']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+
+    @isset($kasBank)
+        @include('koperasi.kas-bank._kartu-dashboard')
+    @endisset
+
     {{-- 7. PERFORMA UNIT USAHA --}}
     <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
         <div class="flex items-center justify-between mb-4">
