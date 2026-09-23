@@ -116,7 +116,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Uang yang ada (Rp)</label>
-                <input type="number" step="1" name="saldo_fisik" value="{{ old('saldo_fisik') }}"
+                <input type="number" min="0" step="1" name="saldo_fisik" value="{{ old('saldo_fisik') }}"
                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
                 @error('saldo_fisik', 'rekonsiliasi') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
             </div>

@@ -90,10 +90,13 @@ class AkunKasController extends Controller
 
         $validated = $request->validateWithBag('rekonsiliasi', [
             'tanggal' => ['required', 'date', 'before_or_equal:today'],
-            'saldo_fisik' => ['required', 'numeric'],
+            // Uang yang benar-benar ada tidak mungkin negatif. Selisih boleh
+            // negatif (uang kurang) — itu dihitung sistem, bukan diisi.
+            'saldo_fisik' => ['required', 'numeric', 'min:0'],
             'catatan' => ['nullable', 'string', 'max:1000'],
         ], [
             'tanggal.before_or_equal' => 'Tanggal hitung fisik tidak boleh di masa depan.',
+            'saldo_fisik.min' => 'Uang yang ada tidak boleh kurang dari Rp0.',
         ]);
 
         $saldoSistem = $kas->saldo($akun, Carbon::parse($validated['tanggal'])->toDateString());

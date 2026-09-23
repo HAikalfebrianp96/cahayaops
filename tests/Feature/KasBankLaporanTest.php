@@ -277,6 +277,25 @@ class KasBankLaporanTest extends TestCase
         $this->assertEquals(-45000, (float) RekonsiliasiKas::firstOrFail()->selisih);
     }
 
+    public function test_uang_fisik_tidak_boleh_negatif_tapi_boleh_nol(): void
+    {
+        $this->skenario();
+
+        $this->actingAs($this->timKoperasi)->post(route('koperasi.kas-bank.rekonsiliasi', $this->kas), [
+            'tanggal' => '2026-07-31', 'saldo_fisik' => -1, 'catatan' => 'salah ketik',
+        ])->assertSessionHasErrors(['saldo_fisik' => 'Uang yang ada tidak boleh kurang dari Rp0.'], null, 'rekonsiliasi');
+        $this->assertSame(0, RekonsiliasiKas::count());
+
+        // Rp0 sah (kas benar-benar kosong) — selisihnya boleh negatif.
+        $this->actingAs($this->timKoperasi)->post(route('koperasi.kas-bank.rekonsiliasi', $this->kas), [
+            'tanggal' => '2026-07-31', 'saldo_fisik' => 0, 'catatan' => 'Laci kosong, uang disetor ke bendahara',
+        ])->assertSessionHasNoErrors();
+
+        $baris = RekonsiliasiKas::firstOrFail();
+        $this->assertEquals(0, (float) $baris->saldo_fisik);
+        $this->assertLessThan(0, (float) $baris->selisih);
+    }
+
     public function test_akun_dengan_hitung_fisik_tidak_bisa_dihapus(): void
     {
         $akun = AkunKas::create(['nama' => 'Kas Kecil', 'jenis' => 'Kas', 'saldo_awal' => 0, 'status' => 'Aktif']);
