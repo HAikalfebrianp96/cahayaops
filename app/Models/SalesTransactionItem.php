@@ -57,6 +57,11 @@ class SalesTransactionItem extends Model
      * memang keputusan bisnis (cuci gudang, barang rusak, promosi). Yang
      * dicegah adalah salah ketik, bukan keputusannya.
      *
+     * HPP Rp0 SELALU VALID dan tidak pernah diperingatkan: barang bisa memang
+     * diperoleh gratis (kasus nyata: Kerupuk Tuiri, TRX-202609-000188 &
+     * -000190). Rp0 tetap masuk HPP Terjual apa adanya; sistem tidak boleh
+     * menggantinya dengan angka lain. Keterangannya cukup di Catatan item.
+     *
      * Aturan yang sama dipakai form (JavaScript) dan controller — kalimatnya
      * dibentuk di sini supaya keduanya tidak berbeda.
      */

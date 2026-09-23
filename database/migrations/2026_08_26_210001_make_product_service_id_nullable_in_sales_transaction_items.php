@@ -24,6 +24,15 @@ return new class extends Migration
         // yang dijalankan di MySQL PERSIS SAMA seperti sebelumnya.
         if (DB::getDriverName() === 'mysql') {
             DB::statement('ALTER TABLE `sales_transaction_items` MODIFY `product_service_id` BIGINT UNSIGNED NULL');
+        } elseif (DB::getDriverName() === 'sqlite') {
+            // SQLite (database test) sebelumnya tetap NOT NULL, sehingga
+            // penjualan ITEM MANUAL tidak pernah bisa diuji — padahal di
+            // MySQL item manual sudah dipakai (mis. Kerupuk Tuiri, HPP Rp0).
+            // change() bawaan Laravel 12 membangun ulang tabel SQLite; MySQL
+            // tidak tersentuh cabang ini.
+            Schema::table('sales_transaction_items', function (Blueprint $table) {
+                $table->unsignedBigInteger('product_service_id')->nullable()->change();
+            });
         }
     }
 
