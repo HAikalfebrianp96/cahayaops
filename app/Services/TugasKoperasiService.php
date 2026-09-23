@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AkunKas;
 use App\Models\KoperasiMember;
 use App\Models\Participant;
 use App\Models\Pengeluaran;
@@ -136,6 +137,17 @@ class TugasKoperasiService
     }
 
     /**
+     * Akun kas/bank aktif yang saldo awalnya belum ditetapkan.
+     *
+     * Tanpa titik awal, "uang tersedia" di Kas & Bank dihitung dari Rp0 —
+     * angkanya tampak pasti padahal belum bisa dipercaya.
+     */
+    public function akunTanpaSaldoAwal(): Collection
+    {
+        return AkunKas::aktif()->whereNull('tanggal_saldo_awal')->orderBy('nama')->get();
+    }
+
+    /**
      * Peserta Cahaya Preneur yang belum menjadi anggota koperasi.
      *
      * Bukan pekerjaan yang mendesak, tapi inilah satu-satunya jembatan
@@ -177,7 +189,8 @@ class TugasKoperasiService
 
         $perhatian = KoperasiMember::where('status', 'Aktif')->whereNull('pin_hash')->count()
             + KoperasiMember::where('status', 'Aktif')->whereDoesntHave('savings')->count()
-            + Pengeluaran::aktif()->whereNull('bukti_path')->count();
+            + Pengeluaran::aktif()->whereNull('bukti_path')->count()
+            + AkunKas::aktif()->whereNull('tanggal_saldo_awal')->count();
 
         return [
             'segera' => $segera,
@@ -223,6 +236,7 @@ class TugasKoperasiService
             'anggota_tanpa_pin' => $tanpaPin,
             'anggota_tanpa_simpanan' => $tanpaSimpanan,
             'pengeluaran_tanpa_bukti' => $tanpaBukti,
+            'akun_tanpa_saldo_awal' => $this->akunTanpaSaldoAwal(),
         ];
 
         $info = [

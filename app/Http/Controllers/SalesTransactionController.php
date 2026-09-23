@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\AkunKas;
 use App\Models\BusinessUnit;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\ProductService;
 use App\Models\SalesTransaction;
 use App\Models\SalesTransactionItem;
+use App\Services\PembayaranPenjualanService;
 use App\Services\PenghapusanPermanenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -95,7 +97,7 @@ class SalesTransactionController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, PembayaranPenjualanService $pembayaran)
     {
         $this->authorizeManage();
 
@@ -106,7 +108,7 @@ class SalesTransactionController extends Controller
         $dpNominal = $this->hitungDibayar($validated, $total);
         $buatInvoice = ($validated['action'] ?? 'simpan') === 'invoice';
 
-        $transaksi = DB::transaction(function () use ($validated, $itemsToSave, $subtotal, $diskon, $ongkir, $total, $dpNominal, $buatInvoice) {
+        $transaksi = DB::transaction(function () use ($validated, $itemsToSave, $subtotal, $diskon, $ongkir, $total, $dpNominal, $buatInvoice, $pembayaran) {
             $customer = $this->resolveCustomer($validated);
 
             $trx = SalesTransaction::create([
@@ -120,7 +122,8 @@ class SalesTransactionController extends Controller
                 'ongkir_ditanggung' => $validated['ongkir_ditanggung'] ?? 'Pelanggan',
                 'total' => $total,
                 'status_pembayaran' => $validated['status_pembayaran'],
-                'dp_nominal' => $dpNominal,
+                // Diisi PembayaranPenjualanService di bawah, dari riwayat pembayaran.
+                'dp_nominal' => 0,
                 'metode_pembayaran' => $validated['metode_pembayaran'],
                 'metode_pengiriman' => $validated['metode_pengiriman'],
                 'nama_ekspedisi' => $validated['nama_ekspedisi'] ?? null,
@@ -135,6 +138,16 @@ class SalesTransactionController extends Controller
             foreach ($itemsToSave as $item) {
                 $trx->items()->create($item);
             }
+
+            // Items dulu, baru pembayaran: total transaksi sudah final di sini.
+            $pembayaran->sesuaikan(
+                $trx,
+                $this->targetDibayar($validated, $total, $dpNominal),
+                $this->akunPembayaran($validated, $pembayaran),
+                $validated['metode_pembayaran'],
+                $trx->tanggal->toDateString(),
+                'Dibayar saat transaksi dicatat.',
+            );
 
             if ($buatInvoice) {
                 Invoice::create([
@@ -151,7 +164,7 @@ class SalesTransactionController extends Controller
             : 'Transaksi berhasil disimpan. Anda bisa buat invoice kapan saja dari halaman detail.';
 
         return redirect()->route('koperasi.penjualan.show', $transaksi)
-            ->with('success', $pesan)
+            ->with('success', $pesan . $this->pesanKembalian($dpNominal, $total))
             ->with('warning', $this->peringatanHpp($itemsToSave));
     }
 
@@ -171,7 +184,7 @@ class SalesTransactionController extends Controller
         ));
     }
 
-    public function update(Request $request, SalesTransaction $transaksi)
+    public function update(Request $request, SalesTransaction $transaksi, PembayaranPenjualanService $pembayaran)
     {
         $this->authorizeManage();
         abort_if($transaksi->status_transaksi === 'Dibatalkan', 403, 'Transaksi yang sudah dibatalkan tidak dapat diedit.');
@@ -184,7 +197,10 @@ class SalesTransactionController extends Controller
         // Dibaca SEBELUM diganti — untuk jejak perubahan item di bawah.
         $itemLama = $transaksi->items()->orderBy('id')->get();
 
-        DB::transaction(function () use ($transaksi, $validated, $itemsToSave, $subtotal, $diskon, $ongkir, $total, $dpNominal, $itemLama) {
+        DB::transaction(function () use ($transaksi, $validated, $itemsToSave, $subtotal, $diskon, $ongkir, $total, $dpNominal, $itemLama, $pembayaran) {
+            // SEBELUM transaksinya diubah — lihat pastikanRiwayatAwal().
+            $pembayaran->pastikanRiwayatAwal($transaksi);
+
             $customer = $this->resolveCustomer($validated);
 
             $transaksi->update([
@@ -197,7 +213,8 @@ class SalesTransactionController extends Controller
                 'ongkir_ditanggung' => $validated['ongkir_ditanggung'] ?? 'Pelanggan',
                 'total' => $total,
                 'status_pembayaran' => $validated['status_pembayaran'],
-                'dp_nominal' => $dpNominal,
+                // dp_nominal TIDAK diisi dari form — diturunkan dari riwayat
+                // pembayaran lewat sesuaikan() di bawah.
                 'metode_pembayaran' => $validated['metode_pembayaran'],
                 'metode_pengiriman' => $validated['metode_pengiriman'],
                 'nama_ekspedisi' => $validated['nama_ekspedisi'] ?? null,
@@ -216,11 +233,23 @@ class SalesTransactionController extends Controller
             }
 
             $this->catatPerubahanItem($transaksi, $itemLama, $itemsToSave);
+
+            // Tambahan pembayaran lewat edit dicatat bertanggal HARI INI —
+            // hari uangnya dicatat. Pelunasan dengan tanggal lain dicatat
+            // lewat "Terima Pembayaran" di halaman detail.
+            $pembayaran->sesuaikan(
+                $transaksi,
+                $this->targetDibayar($validated, $total, $dpNominal),
+                $this->akunPembayaran($validated, $pembayaran),
+                $validated['metode_pembayaran'],
+                max(now()->toDateString(), $transaksi->tanggal->toDateString()),
+                'Tambahan pembayaran lewat edit transaksi.',
+            );
         });
 
         return redirect()
             ->route('koperasi.penjualan.show', $transaksi)
-            ->with('success', 'Transaksi berhasil diperbarui.')
+            ->with('success', 'Transaksi berhasil diperbarui.' . $this->pesanKembalian($dpNominal, $total))
             ->with('warning', $this->peringatanHpp($itemsToSave));
     }
 
@@ -440,9 +469,14 @@ class SalesTransactionController extends Controller
         // unit dan pelanggannya, bukan berubah jadi "—" begitu keduanya
         // diarsipkan. Kehilangan identitas di layar histori sama merugikannya
         // dengan halaman yang gagal terbuka, dan jauh lebih mudah lolos.
-        $transaksi->load(['businessUnitTermasukArsip', 'customerTermasukArsip', 'items', 'invoice', 'creator']);
+        $transaksi->load(['businessUnitTermasukArsip', 'customerTermasukArsip', 'items', 'invoice', 'creator', 'pembayaran.akunKas', 'pembayaran.pembatal']);
 
-        return view('koperasi.penjualan.show', compact('transaksi'));
+        return view('koperasi.penjualan.show', [
+            'transaksi' => $transaksi,
+            'akunKasOptions' => AkunKas::aktif()->orderBy('jenis')->orderBy('nama')->get(),
+            'metodeOptions' => SalesTransaction::METODE_PEMBAYARAN_OPTIONS,
+            'akunBawaanId' => app(PembayaranPenjualanService::class)->akunBawaan($transaksi->metode_pembayaran)?->id,
+        ]);
     }
 
     // ==========================================================
@@ -489,6 +523,7 @@ class SalesTransactionController extends Controller
             'customers' => Customer::orderBy('nama')->get(),
             'statusOptions' => SalesTransaction::STATUS_PEMBAYARAN_OPTIONS,
             'metodeOptions' => SalesTransaction::METODE_PEMBAYARAN_OPTIONS,
+            'akunKasOptions' => AkunKas::aktif()->orderBy('jenis')->orderBy('nama')->get(),
             'statusTransaksiOptions' => $this->statusDariForm(),
             'metodePengirimanOptions' => SalesTransaction::METODE_PENGIRIMAN_OPTIONS,
             'ongkirDitanggungOptions' => SalesTransaction::ONGKIR_DITANGGUNG_OPTIONS,
@@ -554,6 +589,7 @@ class SalesTransactionController extends Controller
             'status_pembayaran' => ['required', Rule::in(SalesTransaction::STATUS_PEMBAYARAN_OPTIONS)],
             'metode_pembayaran' => ['required', Rule::in(SalesTransaction::METODE_PEMBAYARAN_OPTIONS)],
             'nominal_dibayar' => ['nullable', 'numeric', 'min:0'],
+            'akun_kas_id' => ['nullable', Rule::exists('akun_kas', 'id')->where('status', AkunKas::STATUS_AKTIF)],
             'catatan' => ['nullable', 'string'],
             'action' => ['sometimes', Rule::in(['simpan', 'invoice'])],
         ]);
@@ -717,6 +753,33 @@ class SalesTransactionController extends Controller
             'DP' => (float) ($validated['nominal_dibayar'] ?? 0),
             default => 0,
         };
+    }
+
+    /**
+     * Uang yang benar-benar tinggal di koperasi menurut isian form.
+     *
+     * "Lunas" berarti terbayar penuh, apa pun nominal yang diketik — aturan
+     * yang sama dengan penjagaan di SalesTransaction::booted(). Nominal di
+     * atas total adalah uang yang diserahkan pelanggan; selisihnya kembalian.
+     */
+    private function targetDibayar(array $validated, float $total, float $dpNominal): float
+    {
+        return $validated['status_pembayaran'] === 'Lunas' ? $total : min($dpNominal, $total);
+    }
+
+    /** Akun pilihan petugas, atau akun bawaan menurut metode pembayaran. */
+    private function akunPembayaran(array $validated, PembayaranPenjualanService $pembayaran): ?int
+    {
+        return ! empty($validated['akun_kas_id'])
+            ? (int) $validated['akun_kas_id']
+            : $pembayaran->akunBawaan($validated['metode_pembayaran'])?->id;
+    }
+
+    private function pesanKembalian(float $dpNominal, float $total): string
+    {
+        return $dpNominal > $total && $total > 0
+            ? ' Kelebihan ' . rupiah($dpNominal - $total) . ' dicatat sebagai kembalian, bukan uang masuk.'
+            : '';
     }
 
     private function resolveCustomer(array $validated): Customer

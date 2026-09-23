@@ -254,8 +254,28 @@
                         <input type="number" min="0" step="1" name="nominal_dibayar" id="inputNominalDibayar"
                                value="{{ old('nominal_dibayar', $isEdit ? $transaksi->dp_nominal : 0) }}"
                                oninput="recomputeSummary()" class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
-                        <p class="text-xs text-text-secondary mt-1">Lunas & dikosongkan = otomatis Grand Total. DP = isi nominalnya. Sisa otomatis.</p>
+                        <p class="text-xs text-text-secondary mt-1">Lunas & dikosongkan = otomatis Grand Total. DP = isi nominalnya. Sisa otomatis. Kelebihan dari Grand Total dicatat sebagai kembalian.</p>
                         @error('dp_nominal') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        {{-- Kas & Bank Tahap 2: ke laci atau rekening mana uangnya masuk.
+                             Kosong = otomatis menurut metode (Transfer/QRIS -> Bank, lainnya -> Kas). --}}
+                        <label class="block text-sm font-medium text-text-main mb-1">
+                            {{ $isEdit ? 'Akun untuk Tambahan Pembayaran' : 'Diterima di' }}
+                        </label>
+                        <select name="akun_kas_id" class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
+                            <option value="">Otomatis sesuai metode pembayaran</option>
+                            @foreach ($akunKasOptions as $akun)
+                                <option value="{{ $akun->id }}" @selected((string) old('akun_kas_id') === (string) $akun->id)>{{ $akun->nama }} ({{ $akun->jenis }})</option>
+                            @endforeach
+                        </select>
+                        @if ($isEdit)
+                            <p class="text-xs text-text-secondary mt-1">
+                                Menaikkan nominal dibayar di sini dicatat sebagai pembayaran bertanggal hari ini.
+                                Untuk pelunasan dengan tanggal lain, pakai <strong>Terima Pembayaran</strong> di halaman detail.
+                            </p>
+                        @endif
+                        @error('akun_kas_id') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
             </div>

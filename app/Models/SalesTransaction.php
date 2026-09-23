@@ -23,7 +23,10 @@ class SalesTransaction extends Model
         'ongkir_ditanggung',
         'total',
         'status_pembayaran',
-        'dp_nominal', // dipakai sbg "nominal dibayar" utk semua status (Lunas/DP/Belum Dibayar)
+        // "Nominal dibayar" utk semua status (Lunas/DP/Belum Dibayar). Sejak
+        // Kas & Bank Tahap 2 nilainya RINGKASAN dari tabel pembayaran_penjualan,
+        // diperbarui PembayaranPenjualanService — jangan ditulis langsung.
+        'dp_nominal',
         'metode_pembayaran',
         'metode_pengiriman',
         'nama_ekspedisi',
@@ -192,6 +195,12 @@ class SalesTransaction extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SalesTransactionItem::class);
+    }
+
+    /** Riwayat uang diterima — termasuk yang dibatalkan, urut kronologis. */
+    public function pembayaran(): HasMany
+    {
+        return $this->hasMany(PembayaranPenjualan::class)->orderBy('tanggal')->orderBy('id');
     }
 
     public function invoice(): HasOne

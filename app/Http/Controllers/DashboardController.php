@@ -624,6 +624,8 @@ class DashboardController extends Controller
             // semua() memuat seluruh transaksi & anggota beserta relasinya
             // hanya untuk dihitung — 18,5 MB pada volume lima tahun.
             'ringkasTugas' => app(\App\Services\TugasKoperasiService::class)->ringkas(),
+            // Posisi uang hari ini — dari KasBankService, sama dengan halaman Kas & Bank.
+            'kasBank' => app(\App\Services\KasBankService::class)->ringkasan(),
             'simpananTerbaru' => $simpananTerbaru,
             'calonAnggota' => $calonAnggota,
             'jumlahCalon' => $jumlahCalon,
@@ -971,7 +973,10 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return compact('stats', 'perUnit', 'produkTerlaris', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units');
+        // Posisi uang hari ini — dari KasBankService, sama dengan halaman Kas & Bank.
+        $kasBank = app(\App\Services\KasBankService::class)->ringkasan();
+
+        return compact('stats', 'perUnit', 'produkTerlaris', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units', 'kasBank');
     }
 
     /**

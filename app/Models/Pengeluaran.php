@@ -14,7 +14,7 @@ class Pengeluaran extends Model
 
     protected $fillable = [
         'tanggal', 'business_unit_id', 'kategori', 'pengeluaran_category_id', 'nominal', 'metode_pembayaran',
-        'keterangan', 'bukti_path', 'bukti_asli', 'status', 'created_by',
+        'keterangan', 'bukti_path', 'bukti_asli', 'status', 'created_by', 'akun_kas_id',
     ];
 
     protected $casts = [
@@ -120,5 +120,11 @@ class Pengeluaran extends Model
     public function labelUnit(): string
     {
         return $this->businessUnit->nama ?? 'Operasional Koperasi';
+    }
+
+    /** Laci atau rekening tempat uang catatan ini masuk/keluar (null = belum ditentukan). */
+    public function akunKas(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(AkunKas::class);
     }
 }

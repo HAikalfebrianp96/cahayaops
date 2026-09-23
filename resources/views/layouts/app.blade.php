@@ -169,6 +169,7 @@
                 ['route' => 'koperasi.penjualan.index', 'label' => 'Penjualan', 'active' => ['koperasi.penjualan.*', 'koperasi.invoice.*']],
                 ['route' => 'koperasi.pengeluaran.index', 'label' => 'Pengeluaran', 'active' => ['koperasi.pengeluaran.*']],
                 ['route' => 'koperasi.keuangan.index', 'label' => 'Keuangan', 'active' => ['koperasi.keuangan.*', 'koperasi.dana-sukarela.*']],
+                ['route' => 'koperasi.kas-bank.index', 'label' => 'Kas & Bank', 'active' => ['koperasi.kas-bank.*']],
                 ['route' => 'koperasi.shu.index', 'label' => 'SHU', 'active' => ['koperasi.shu.*']],
                 ['route' => 'koperasi.laporan.index', 'label' => 'Laporan', 'active' => ['koperasi.laporan.*']],
             ];
@@ -216,6 +217,7 @@
                     ['route' => 'koperasi.pelanggan.index', 'label' => 'Pelanggan', 'active' => ['koperasi.pelanggan.*']],
                     ['route' => 'koperasi.pengeluaran.index', 'label' => 'Pengeluaran', 'active' => ['koperasi.pengeluaran.*', 'koperasi.kategori-pengeluaran.*']],
                     ['route' => 'koperasi.keuangan.index', 'label' => 'Keuangan', 'active' => ['koperasi.keuangan.*']],
+                    ['route' => 'koperasi.kas-bank.index', 'label' => 'Kas & Bank', 'active' => ['koperasi.kas-bank.*']],
                     ['route' => 'koperasi.shu.index', 'label' => 'SHU', 'active' => ['koperasi.shu.*']],
                     ['route' => 'koperasi.laporan.index', 'label' => 'Laporan', 'active' => ['koperasi.laporan.*']],
                 ];

@@ -38,6 +38,8 @@ use App\Http\Controllers\PengaturanController;
 use App\Http\Controllers\PrioritasPendampinganController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\KategoriPengeluaranController;
+use App\Http\Controllers\AkunKasController;
+use App\Http\Controllers\PembayaranPenjualanController;
 use App\Http\Controllers\ProductServiceController;
 use App\Http\Controllers\HppCalculationController;
 use App\Http\Controllers\ReportController;
@@ -360,6 +362,11 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         // yang tidak pernah terjadi ke dalam laporan.
         Route::post('/penjualan/{transaksi}/pulihkan', [SalesTransactionController::class, 'pulihkan'])->name('penjualan.pulihkan');
 
+        // Kas & Bank Tahap 2 — riwayat pembayaran: DP susulan, cicilan,
+        // pelunasan, dan koreksinya (batal + catat ulang, tidak pernah edit).
+        Route::post('/penjualan/{transaksi}/pembayaran', [PembayaranPenjualanController::class, 'store'])->name('penjualan.pembayaran.store');
+        Route::post('/penjualan/pembayaran/{pembayaran}/batalkan', [PembayaranPenjualanController::class, 'batalkan'])->name('penjualan.pembayaran.batalkan');
+
         // Hapus permanen. Penjaganya menolak transaksi yang masih aktif —
         // harus dibatalkan (beserta alasannya) lebih dulu, supaya uang yang
         // hilang dari laporan selalu punya keterangan kenapa.
@@ -391,6 +398,18 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
         Route::put('/kategori-pengeluaran/{kategori}', [KategoriPengeluaranController::class, 'update'])->name('kategori-pengeluaran.update');
         Route::post('/kategori-pengeluaran/{kategori}/toggle', [KategoriPengeluaranController::class, 'toggleStatus'])->name('kategori-pengeluaran.toggle');
         Route::delete('/kategori-pengeluaran/{kategori}', [KategoriPengeluaranController::class, 'destroy'])->name('kategori-pengeluaran.destroy');
+
+        // Kas & Bank — Tahap 1: daftar akun (laci kas / rekening) dan saldo awalnya.
+        Route::get('/kas-bank', [AkunKasController::class, 'index'])->name('kas-bank.index');
+        Route::get('/kas-bank/create', [AkunKasController::class, 'create'])->name('kas-bank.create');
+        Route::post('/kas-bank', [AkunKasController::class, 'store'])->name('kas-bank.store');
+        Route::get('/kas-bank/{akun}', [AkunKasController::class, 'show'])->name('kas-bank.show');
+        Route::get('/kas-bank/{akun}/excel', [AkunKasController::class, 'excel'])->name('kas-bank.excel');
+        Route::post('/kas-bank/{akun}/rekonsiliasi', [AkunKasController::class, 'rekonsiliasi'])->name('kas-bank.rekonsiliasi');
+        Route::get('/kas-bank/{akun}/edit', [AkunKasController::class, 'edit'])->name('kas-bank.edit');
+        Route::put('/kas-bank/{akun}', [AkunKasController::class, 'update'])->name('kas-bank.update');
+        Route::post('/kas-bank/{akun}/toggle', [AkunKasController::class, 'toggleStatus'])->name('kas-bank.toggle');
+        Route::delete('/kas-bank/{akun}', [AkunKasController::class, 'destroy'])->name('kas-bank.destroy');
 
         // Keuangan — Dana Sukarela Sosial + Dana Hibah
         Route::get('/keuangan', [LabaRugiController::class, 'index'])->name('keuangan.index');

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\ActivityLog;
+use App\Models\AkunKas;
+use App\Models\PembayaranPenjualan;
 use App\Models\BusinessUnit;
 use App\Models\Concerns\BisaDibatalkan;
 use App\Models\Customer;
@@ -115,6 +117,7 @@ class PenghapusanPermanenService
             'produk' => ProductService::class,
             'pelanggan' => Customer::class,
             'kategori' => PengeluaranCategory::class,
+            'akun-kas' => AkunKas::class,
 
             // ==========================================================
             // CATATAN UANG YANG SUDAH DIBATALKAN
@@ -171,6 +174,7 @@ class PenghapusanPermanenService
             $model instanceof ProductService => $this->tahanProduk($model),
             $model instanceof Customer => $this->tahanPelanggan($model),
             $model instanceof PengeluaranCategory => $this->tahanKategori($model),
+            $model instanceof AkunKas => $this->tahanAkunKas($model),
             $model instanceof ImpactProgram => $this->tahanProgramDampak($model),
             $model instanceof ShuPeriod => $this->tahanPeriodeShu($model),
             default => null,
@@ -497,6 +501,48 @@ class PenghapusanPermanenService
 
         if ($jumlah > 0) {
             return "Kategori ini masih dipakai {$jumlah} pengeluaran. Menghapusnya membuat pengeluaran lama kehilangan kategorinya.";
+        }
+
+        return null;
+    }
+
+    /**
+     * Akun kas/bank yang saldo awalnya sudah bernilai menjadi titik awal
+     * perhitungan uang koperasi. Menghapusnya membuat total kas turun tanpa
+     * satu pun catatan uang yang menjelaskannya.
+     *
+     * Jalan keluarnya disebutkan: ubah saldo awal ke Rp0 lebih dulu —
+     * perubahan itu tercatat di Activity Log beserta nilai lamanya — atau
+     * cukup nonaktifkan akunnya.
+     *
+     * Akun yang pernah dipakai catatan uang mana pun — penjualan,
+     * pengeluaran, simpanan, dana — juga tertahan: riwayat uangnya akan
+     * kehilangan tempat.
+     */
+    private function tahanAkunKas(AkunKas $akun): ?string
+    {
+        // Termasuk catatan yang sudah dibatalkan: riwayatnya tetap menyebut akun ini.
+        $jejak = [
+            'pembayaran penjualan' => PembayaranPenjualan::where('akun_kas_id', $akun->id)->count(),
+            'pengeluaran' => Pengeluaran::where('akun_kas_id', $akun->id)->count(),
+            'entri simpanan' => MemberSaving::where('akun_kas_id', $akun->id)->count(),
+            'catatan Dana Sosial' => DanaSukarelaMasuk::where('akun_kas_id', $akun->id)->count()
+                + DanaSukarelaKeluar::where('akun_kas_id', $akun->id)->count(),
+            'catatan Dana Hibah' => DanaHibahMasuk::where('akun_kas_id', $akun->id)->count()
+                + DanaHibahKeluar::where('akun_kas_id', $akun->id)->count(),
+            'catatan hitung fisik' => $akun->rekonsiliasi()->count(),
+        ];
+
+        $ada = array_filter($jejak);
+        if ($ada !== []) {
+            $rincian = implode(', ', array_map(fn ($label, $jumlah) => "{$jumlah} {$label}", array_keys($ada), $ada));
+
+            return "Akun ini tercatat di {$rincian}. Menghapusnya membuat riwayat uang itu kehilangan akunnya — nonaktifkan saja.";
+        }
+
+        if ((float) $akun->saldo_awal != 0.0) {
+            return 'Akun ini punya saldo awal ' . rupiah($akun->saldo_awal)
+                . '. Ubah saldo awalnya ke Rp0 dulu, atau cukup nonaktifkan akunnya.';
         }
 
         return null;

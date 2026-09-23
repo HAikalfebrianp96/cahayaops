@@ -402,6 +402,11 @@ Data yang dihapus tidak dapat dipulihkan.');">
                     <label class="block text-xs font-medium text-text-main mb-1">Keterangan <span class="text-text-secondary">(boleh kosong)</span></label>
                     <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft bg-white text-text-main px-3 py-2.5 text-sm">
                 </div>
+                @include('koperasi.kas-bank._pilih-akun', [
+                    'label' => 'Diterima di',
+                    'kelasLabel' => 'block text-xs font-medium text-text-main mb-1',
+                    'kelasInput' => 'w-full rounded-xl border border-border-soft bg-white text-text-main px-3 py-2.5 text-sm',
+                ])
                 <button type="submit" class="bg-cahaya-accent text-white text-sm font-medium px-5 py-2 rounded-lg hover:opacity-90 transition">
                     Simpan Transaksi
                 </button>

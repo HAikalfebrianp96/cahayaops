@@ -247,6 +247,11 @@
                             <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
                             <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
                         </div>
+                        @include('koperasi.kas-bank._pilih-akun', [
+                            'label' => 'Diterima di',
+                            'kelasLabel' => 'block text-xs text-text-secondary mb-1',
+                            'kelasInput' => 'w-full rounded-xl border border-border-soft px-3 py-2 text-sm',
+                        ])
                         <button type="submit" class="bg-cahaya-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Pemasukan</button>
                     </form>
 
@@ -321,6 +326,11 @@ Data yang dihapus tidak dapat dipulihkan.');">
                             <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
                             <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
                         </div>
+                        @include('koperasi.kas-bank._pilih-akun', [
+                            'label' => 'Dibayar dari',
+                            'kelasLabel' => 'block text-xs text-text-secondary mb-1',
+                            'kelasInput' => 'w-full rounded-xl border border-border-soft px-3 py-2 text-sm',
+                        ])
                         <button type="submit" class="bg-cahaya-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Penggunaan</button>
                     </form>
 
@@ -404,6 +414,11 @@ Data yang dihapus tidak dapat dipulihkan.');">
                             <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
                             <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
                         </div>
+                        @include('koperasi.kas-bank._pilih-akun', [
+                            'label' => 'Diterima di',
+                            'kelasLabel' => 'block text-xs text-text-secondary mb-1',
+                            'kelasInput' => 'w-full rounded-xl border border-border-soft px-3 py-2 text-sm',
+                        ])
                         <button type="submit" class="bg-cahaya-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Pemasukan Hibah</button>
                     </form>
 
@@ -479,6 +494,11 @@ Data yang dihapus tidak dapat dipulihkan.');">
                             <label class="block text-xs text-text-secondary mb-1">Keterangan</label>
                             <input type="text" name="keterangan" class="w-full rounded-xl border border-border-soft px-3 py-2 text-sm">
                         </div>
+                        @include('koperasi.kas-bank._pilih-akun', [
+                            'label' => 'Dibayar dari',
+                            'kelasLabel' => 'block text-xs text-text-secondary mb-1',
+                            'kelasInput' => 'w-full rounded-xl border border-border-soft px-3 py-2 text-sm',
+                        ])
                         <button type="submit" class="bg-cahaya-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition">Simpan Penggunaan Hibah</button>
                     </form>
 

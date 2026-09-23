@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\AkunKas;
 use App\Models\BusinessUnit;
 use App\Models\Pengeluaran;
 use App\Models\PengeluaranCategory;
@@ -345,15 +346,24 @@ class PengeluaranController extends Controller
             ? ['nullable', Rule::exists('pengeluaran_categories', 'id')]
             : ['required', Rule::exists('pengeluaran_categories', 'id')->where('status', 'Aktif')];
 
-        return $request->validate([
+        $validated = $request->validate([
             'tanggal' => ['required', 'date'],
             'business_unit_id' => ['nullable', 'exists:business_units,id'], // kosong = Operasional Koperasi
             'pengeluaran_category_id' => $kategoriRule,
             'nominal' => ['required', 'numeric', 'min:0.01'],
             'metode_pembayaran' => ['required', 'in:Cash,Transfer,QRIS,Lainnya'],
+            // Kas & Bank Tahap 3: dari laci/rekening mana uangnya keluar.
+            'akun_kas_id' => AkunKas::aturanValidasi($isUpdate),
             'keterangan' => ['nullable', 'string'],
             'bukti' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
         ]);
+
+        // Kosong = otomatis menurut metode (Transfer/QRIS -> Bank, lainnya -> Kas).
+        if (empty($validated['akun_kas_id'])) {
+            $validated['akun_kas_id'] = AkunKas::bawaanUntukMetode($validated['metode_pembayaran'])?->id;
+        }
+
+        return $validated;
     }
 
     private function handleBukti(Request $request, array &$validated, ?Pengeluaran $existing = null): void

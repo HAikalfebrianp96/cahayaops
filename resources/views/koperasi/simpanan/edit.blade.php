@@ -53,6 +53,14 @@
                 </div>
 
                 <div class="md:col-span-2">
+                    @include('koperasi.kas-bank._pilih-akun', [
+                        'label' => 'Diterima di',
+                        'terpilih' => $simpanan->akun_kas_id,
+                        'kelasInput' => 'w-full rounded-xl border border-border-soft bg-white text-text-main px-3 py-2.5 text-sm',
+                    ])
+                </div>
+
+                <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-text-main mb-1">Keterangan <span class="text-text-secondary">(boleh kosong)</span></label>
                     <textarea name="keterangan" rows="2" class="w-full rounded-xl border border-border-soft bg-white text-text-main px-3 py-2.5 text-sm">{{ old('keterangan', $simpanan->keterangan) }}</textarea>
                     @error('keterangan') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror

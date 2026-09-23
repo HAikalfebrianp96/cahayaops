@@ -119,6 +119,10 @@
         @endif
     </div>
 
+    @isset($kasBank)
+        @include('koperasi.kas-bank._kartu-dashboard')
+    @endisset
+
     {{-- CALON ANGGOTA — integrasi Cahaya Preneur --}}
     <div class="bg-white border border-border-soft rounded-2xl shadow-sm overflow-hidden">
         <div class="p-6 pb-4">

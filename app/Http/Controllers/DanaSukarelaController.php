@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\AkunKas;
 use App\Models\DanaSukarelaKeluar;
 use App\Models\DanaSukarelaMasuk;
 use App\Services\PenghapusanPermanenService;
@@ -21,8 +22,11 @@ class DanaSukarelaController extends Controller
             'nominal' => ['required', 'numeric', 'min:0'],
             'sumber' => ['required', 'string', 'max:255'],
             'keterangan' => ['nullable', 'string'],
+            'akun_kas_id' => AkunKas::aturanValidasi(),
         ]);
         $validated['created_by'] = Auth::id();
+        // Kas & Bank Tahap 3 — dana tidak punya kolom metode; kosong berarti akun Kas.
+        $validated['akun_kas_id'] = $validated['akun_kas_id'] ?? AkunKas::bawaanUntukMetode(null)?->id;
 
         DanaSukarelaMasuk::create($validated);
 
@@ -38,8 +42,11 @@ class DanaSukarelaController extends Controller
             'nominal' => ['required', 'numeric', 'min:0'],
             'keperluan' => ['required', 'string', 'max:255'],
             'keterangan' => ['nullable', 'string'],
+            'akun_kas_id' => AkunKas::aturanValidasi(),
         ]);
         $validated['created_by'] = Auth::id();
+        // Kas & Bank Tahap 3 — dana tidak punya kolom metode; kosong berarti akun Kas.
+        $validated['akun_kas_id'] = $validated['akun_kas_id'] ?? AkunKas::bawaanUntukMetode(null)?->id;
 
         DanaSukarelaKeluar::create($validated);
 
@@ -153,6 +160,7 @@ class DanaSukarelaController extends Controller
             'tanggal' => ['required', 'date'],
             'nominal' => ['required', 'numeric', 'min:0'],
             'keterangan' => ['nullable', 'string'],
+            'akun_kas_id' => AkunKas::aturanValidasi(true),
         ];
 
         // Sumber/keperluan/peruntukan ikut bisa diperbaiki. Tanpa ini, salah
@@ -163,7 +171,9 @@ class DanaSukarelaController extends Controller
             $aturan[$nama] = [$spek['wajib'] ? 'required' : 'nullable', 'string', 'max:255'];
         }
 
-        $baris->update($request->validate($aturan));
+        $validated = $request->validate($aturan);
+        $validated['akun_kas_id'] = $validated['akun_kas_id'] ?? AkunKas::bawaanUntukMetode(null)?->id;
+        $baris->update($validated);
 
         ActivityLog::record(
             action: 'dana_sukarela_updated',

@@ -65,6 +65,12 @@
         @error('metode_pembayaran') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
     </div>
 
+    @include('koperasi.kas-bank._pilih-akun', [
+        'label' => 'Dibayar dari',
+        'terpilih' => $pengeluaran->akun_kas_id ?? null,
+        'petunjuk' => 'Otomatis sesuai metode (Transfer/QRIS → Bank, lainnya → Kas)',
+    ])
+
     <div>
         <label class="block text-sm font-medium text-text-main mb-1">Keterangan <span class="text-text-secondary">(boleh kosong)</span></label>
         <textarea name="keterangan" rows="2" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">{{ old('keterangan', $pengeluaran->keterangan ?? '') }}</textarea>

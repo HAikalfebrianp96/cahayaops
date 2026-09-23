@@ -37,6 +37,7 @@ class MemberSaving extends Model
         'status',
         'dikoreksi_dari_id',
         'alasan_koreksi',
+        'akun_kas_id',
         // dibatalkan_at, dibatalkan_oleh & dikunci_at SENGAJA tidak fillable —
         // ketiganya hanya boleh diisi alur batalkan()/kunci(), bukan dari form.
     ];
@@ -171,5 +172,11 @@ class MemberSaving extends Model
     public function bolehDiubahLangsung(): bool
     {
         return ! $this->dibatalkan() && ! $this->terkunci();
+    }
+
+    /** Laci atau rekening tempat uang catatan ini masuk/keluar (null = belum ditentukan). */
+    public function akunKas(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(AkunKas::class);
     }
 }

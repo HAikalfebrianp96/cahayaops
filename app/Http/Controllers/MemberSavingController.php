@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\AkunKas;
 use App\Models\KoperasiMember;
 use App\Models\MemberSaving;
 use App\Services\PenghapusanPermanenService;
@@ -82,7 +83,7 @@ class MemberSavingController extends Controller
     {
         Gate::authorize('update', $simpanan);
 
-        $validated = $this->validated($request);
+        $validated = $this->validated($request, true);
         $sebelum = $this->ringkas($simpanan);
 
         $simpanan->update($validated);
@@ -143,6 +144,9 @@ class MemberSavingController extends Controller
                     'keterangan' => $simpanan->keterangan,
                     'dikoreksi_dari_id' => $simpanan->id,
                     'alasan_koreksi' => $validated['alasan_koreksi'],
+                    // Uangnya tetap di akun yang sama — koreksi mengubah angka,
+                    // bukan tempat uangnya.
+                    'akun_kas_id' => $simpanan->akun_kas_id,
                 ]);
             }
         });
@@ -252,14 +256,23 @@ class MemberSavingController extends Controller
             ->with('success', 'Entri simpanan ' . $ringkasan . ' dihapus permanen.');
     }
 
-    private function validated(Request $request): array
+    private function validated(Request $request, bool $perbaikan = false): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'jenis_simpanan' => ['required', Rule::in(MemberSaving::JENIS_OPTIONS)],
             'tanggal' => ['required', 'date'],
             'nominal' => ['required', 'numeric', 'min:0'],
+            // Kas & Bank Tahap 3: laci/rekening tempat setoran simpanan diterima.
+            'akun_kas_id' => AkunKas::aturanValidasi($perbaikan),
             'keterangan' => ['nullable', 'string'],
         ]);
+
+        // Simpanan tidak punya kolom metode — kosong berarti akun Kas.
+        if (empty($validated['akun_kas_id'])) {
+            $validated['akun_kas_id'] = AkunKas::bawaanUntukMetode(null)?->id;
+        }
+
+        return $validated;
     }
 
     /** Ringkasan satu baris untuk Activity Log. */

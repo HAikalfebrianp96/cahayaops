@@ -283,5 +283,135 @@ Transaksi akan kembali dihitung di laba rugi dan laporan penjualan.');">
             </details>
         @endif
     </div>
+
+    {{-- ============================================================
+         RIWAYAT PEMBAYARAN (Kas & Bank Tahap 2)
+
+         Satu baris = satu kali uang diterima, dengan tanggal dan akunnya
+         sendiri. Tidak ada tombol edit: koreksi = batalkan (dengan alasan)
+         lalu catat ulang, supaya uang yang pernah tercatat selalu bisa
+         ditelusuri.
+         ============================================================ --}}
+    @php($bolehKelola = auth()->user()->bolehKelolaKoperasi())
+    @php($trxBatal = $transaksi->status_transaksi === 'Dibatalkan')
+    <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
+        <h3 class="text-sm font-semibold text-text-main mb-1">Riwayat Pembayaran</h3>
+        <p class="text-xs text-text-secondary mb-4">
+            Setiap DP, cicilan, dan pelunasan tercatat terpisah beserta tanggal dan akun tempat uangnya diterima.
+            @if ($trxBatal)
+                <span class="text-status-warning">Transaksi ini dibatalkan — pembayarannya tidak dihitung sebagai uang masuk.</span>
+            @endif
+        </p>
+
+        <div class="overflow-x-auto -mx-1 px-1">
+            <table class="w-full text-sm min-w-[560px]">
+                <thead>
+                    <tr class="text-left text-text-secondary border-b border-border-soft">
+                        <th class="py-2 pr-2">Tanggal</th>
+                        <th class="py-2 pr-2 text-right">Nominal</th>
+                        <th class="py-2 pr-2">Diterima di</th>
+                        <th class="py-2 pr-2">Keterangan</th>
+                        @if ($bolehKelola && ! $trxBatal)<th class="py-2"></th>@endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($transaksi->pembayaran as $p)
+                        <tr class="border-b border-border-soft last:border-0 align-top {{ $p->dibatalkan() ? 'text-text-secondary' : '' }}">
+                            <td class="py-2 pr-2 whitespace-nowrap">{{ $p->tanggal->format('d-m-Y') }}</td>
+                            <td class="py-2 pr-2 text-right whitespace-nowrap {{ $p->dibatalkan() ? 'line-through' : 'font-medium' }}">{{ rupiah($p->nominal) }}</td>
+                            <td class="py-2 pr-2">
+                                {{ $p->akunKas->nama ?? 'Belum ditentukan' }}
+                                @if ($p->metode)<span class="text-xs text-text-secondary">· {{ $p->metode }}</span>@endif
+                            </td>
+                            <td class="py-2 pr-2 text-xs">
+                                @if ($p->catatan)<div>{{ $p->catatan }}</div>@endif
+                                @if ($p->dibatalkan())
+                                    <div class="text-status-warning">
+                                        Dibatalkan {{ $p->dibatalkan_at?->format('d-m-Y H:i') }}{{ $p->pembatal ? ' oleh ' . $p->pembatal->name : '' }}:
+                                        {{ $p->alasan_pembatalan }}
+                                    </div>
+                                @endif
+                            </td>
+                            @if ($bolehKelola && ! $trxBatal)
+                                <td class="py-2 text-right">
+                                    @unless ($p->dibatalkan())
+                                        <details class="inline-block text-left">
+                                            <summary class="text-xs text-status-danger cursor-pointer">Batalkan</summary>
+                                            <form method="POST" action="{{ route('koperasi.penjualan.pembayaran.batalkan', $p) }}" class="mt-2 space-y-2 w-56">
+                                                @csrf
+                                                <input type="text" name="alasan_pembatalan" required placeholder="Alasan pembatalan"
+                                                       class="w-full rounded-lg border border-border-soft px-2 py-1.5 text-xs">
+                                                <button type="submit" class="bg-status-danger text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90"
+                                                        onclick="return confirm('Batalkan pembayaran ini? Barisnya tetap tersimpan sebagai jejak.');">
+                                                    Batalkan Pembayaran
+                                                </button>
+                                            </form>
+                                        </details>
+                                    @endunless
+                                </td>
+                            @endif
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="py-6 text-center text-text-secondary italic">Belum ada pembayaran.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @error('alasan_pembatalan', 'batalPembayaran') <p class="text-xs text-status-danger mt-2">{{ $message }}</p> @enderror
+
+        @if ($bolehKelola && ! $trxBatal && $transaksi->sisaPembayaran() > 0)
+            <details class="mt-5 pt-4 border-t border-border-soft" @if ($errors->pembayaran->any()) open @endif>
+                <summary class="text-sm font-medium text-cahaya-primary cursor-pointer">
+                    + Terima Pembayaran (sisa {{ rupiah($transaksi->sisaPembayaran()) }})
+                </summary>
+                <form method="POST" action="{{ route('koperasi.penjualan.pembayaran.store', $transaksi) }}" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                    @csrf
+                    <div>
+                        <label class="block text-xs font-medium text-text-main mb-1">Tanggal Diterima</label>
+                        <input type="date" name="tanggal" max="{{ now()->format('Y-m-d') }}"
+                               value="{{ old('tanggal', now()->format('Y-m-d')) }}"
+                               class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
+                        @error('tanggal', 'pembayaran') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-main mb-1">Nominal (Rp)</label>
+                        <input type="number" name="nominal" min="1" step="1" max="{{ (int) ceil($transaksi->sisaPembayaran()) }}"
+                               value="{{ old('nominal', (int) $transaksi->sisaPembayaran()) }}"
+                               class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
+                        @error('nominal', 'pembayaran') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-main mb-1">Diterima di</label>
+                        <select name="akun_kas_id" class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
+                            <option value="">— Pilih akun —</option>
+                            @foreach ($akunKasOptions as $akun)
+                                <option value="{{ $akun->id }}" @selected((string) old('akun_kas_id', $akunBawaanId) === (string) $akun->id)>{{ $akun->nama }} ({{ $akun->jenis }})</option>
+                            @endforeach
+                        </select>
+                        @error('akun_kas_id', 'pembayaran') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-main mb-1">Metode</label>
+                        <select name="metode" class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
+                            @foreach ($metodeOptions as $metode)
+                                <option value="{{ $metode }}" @selected(old('metode', $transaksi->metode_pembayaran) === $metode)>{{ $metode }}</option>
+                            @endforeach
+                        </select>
+                        @error('metode', 'pembayaran') <p class="text-xs text-status-danger mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-text-main mb-1">Catatan <span class="text-text-secondary font-normal">(opsional)</span></label>
+                        <input type="text" name="catatan" value="{{ old('catatan') }}" placeholder="mis. pelunasan via transfer"
+                               class="w-full rounded-lg border border-border-soft px-3 py-2 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <button type="submit" class="bg-cahaya-primary text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:opacity-90 transition">
+                            Simpan Pembayaran
+                        </button>
+                    </div>
+                </form>
+            </details>
+        @endif
+    </div>
 </div>
 @endsection

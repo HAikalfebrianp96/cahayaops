@@ -210,6 +210,22 @@
                         </div>
                     </div>
                 @endforeach
+
+                @foreach ($perhatian['akun_tanpa_saldo_awal'] ?? [] as $akun)
+                    <div class="border border-border-soft rounded-xl p-4">
+                        <p class="text-[15px] font-semibold text-text-main">{{ $akun->nama }}</p>
+                        <p class="text-sm text-text-secondary">Akun {{ $akun->jenis }}</p>
+                        <p class="mt-2 text-xs text-text-secondary">
+                            Alasan: Saldo awal belum ditetapkan, jadi uang tersedia di Kas &amp; Bank dihitung dari Rp0.
+                        </p>
+                        <div class="mt-4">
+                            <a href="{{ route('koperasi.kas-bank.edit', $akun) }}"
+                               class="inline-flex items-center justify-center rounded-lg bg-cahaya-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">
+                                Isi Saldo Awal
+                            </a>
+                        </div>
+                    </div>
+                @endforeach
             </div>
         @endif
     </div>

@@ -12,11 +12,17 @@ class DanaSukarelaMasuk extends Model
 
     protected $table = 'dana_sukarela_masuk';
 
-    protected $fillable = ['tanggal', 'nominal', 'status', 'sumber', 'keterangan', 'created_by'];
+    protected $fillable = ['tanggal', 'nominal', 'status', 'sumber', 'keterangan', 'created_by', 'akun_kas_id'];
 
     protected $casts = [
         'tanggal' => 'date',
         'nominal' => 'decimal:2',
         'dibatalkan_at' => 'datetime',
     ];
+
+    /** Laci atau rekening tempat uang catatan ini masuk/keluar (null = belum ditentukan). */
+    public function akunKas(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(AkunKas::class);
+    }
 }
