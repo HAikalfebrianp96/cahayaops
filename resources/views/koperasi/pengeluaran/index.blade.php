@@ -71,7 +71,17 @@
 
     {{-- RINGKASAN --}}
     <div class="bg-white border border-border-soft rounded-2xl shadow-sm p-6">
-        <p class="text-xs text-text-secondary mb-1">Total Pengeluaran (sesuai filter di atas)</p>
+        {{-- PERIODE DITULIS EKSPLISIT. Bawaan halaman ini "Bulan Ini", sedangkan
+             Dashboard & Keuangan "Tahun Ini" — tanpa label ini angkanya mudah
+             dikira tidak sinkron padahal periodenya yang berbeda. --}}
+        @php
+            $bulanNama = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            $fTahun = $filters['tahun'] ?? 'default';
+            $fBulan = $filters['bulan'] ?? 'default';
+            $pTahun = $fTahun === 'default' ? (string) now()->year : ($fTahun === 'semua' ? 'semua tahun' : $fTahun);
+            $pBulan = $fBulan === 'default' ? $bulanNama[now()->month] : ($fBulan === 'semua' ? 'semua bulan' : ($bulanNama[(int) $fBulan] ?? ''));
+        @endphp
+        <p class="text-xs text-text-secondary mb-1">Total Pengeluaran · Periode: {{ $pBulan }} {{ $pTahun }}</p>
         <p class="text-2xl font-bold text-koperasi-primary mb-4">{{ rupiah($totalPeriode) }}</p>
 
         {{-- Dua kelompok dengan perlakuan laba-rugi berbeda. Keduanya tetap

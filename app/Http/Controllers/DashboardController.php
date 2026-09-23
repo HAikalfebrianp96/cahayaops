@@ -15,6 +15,7 @@ use App\Models\Participant;
 use App\Models\PendampinganRecord;
 use App\Models\Pendamping;
 use App\Models\Pengeluaran;
+use App\Models\ProductService;
 use App\Models\SalesTransaction;
 use App\Models\TrainingRecord;
 use App\Services\FollowUpService;
@@ -96,7 +97,7 @@ class DashboardController extends Controller
         // angka di luar kewenangannya. Tidak ada switcher untuk mereka:
         // nilai ?modul apa pun diabaikan, sama seperti Pendamping.
         if (Auth::user()->isTimKoperasi()) {
-            return $this->timKoperasiDashboard();
+            return $this->timKoperasiDashboard($request);
         }
 
         $diminta = $request->query('modul');
@@ -554,7 +555,7 @@ class DashboardController extends Controller
      * yang perlu diketik ulang. Keanggotaan tetap KEPUTUSAN Tim Koperasi,
      * bukan otomatis.
      */
-    private function timKoperasiDashboard()
+    private function timKoperasiDashboard(Request $request)
     {
         $anggota = KoperasiMember::with('participant')->get();
 
@@ -616,6 +617,9 @@ class DashboardController extends Controller
             // memindahkan Tim Koperasi keluar dari sini.
             'modul' => 'koperasi',
             'stats' => $stats,
+            // Kondisi usaha — partial & sumber yang SAMA dengan Dashboard
+            // Koperasi milik Admin (ringkasanUsaha / LabaRugiService).
+            'usaha' => $this->ringkasanUsaha($request),
             // Ringkasan Tugas Koperasi dihitung TugasKoperasiService — sumber
             // yang sama dengan halaman /koperasi/tugas, jadi angka di kedua
             // tempat tidak mungkin berbeda. Pelajaran dari Phase 1, waktu
@@ -862,20 +866,27 @@ class DashboardController extends Controller
     /**
      * RINGKASAN "SEMUA KEGIATAN" — tab netral default.
      *
-     * SENGAJA cuma hitungan sederhana (COUNT) dari data yang sudah ada:
-     * tidak ada rumus/agregasi uang baru, dan TIDAK memanggil LabaRugiService
-     * supaya tab default tetap ringan dan tidak menduplikasi angka yang sudah
-     * jadi tanggung jawab panel masing-masing modul.
+     * Pusat monitoring Admin: hitungan pokok kedua modul plus Keuangan
+     * Koperasi tahun berjalan. Tidak ada rumus uang baru — keenam angka
+     * keuangan & Produk Terlaris dibaca dari LabaRugiService, sumber yang
+     * sama dengan Dashboard Koperasi, Keuangan, dan Laporan.
      */
     private function ringkasanSemuaKegiatan(): array
     {
         return [
             'total_peserta' => Participant::count(),
             'peserta_aktif' => Participant::where('status', 'Aktif')->count(),
+            // Status peserta yang dicatat — sejajar dengan "Peserta Aktif".
+            'peserta_berkembang' => Participant::where('status', 'Berkembang')->count(),
             'total_pendamping' => Pendamping::count(),
             'total_anggota' => KoperasiMember::count(),
             'anggota_aktif' => KoperasiMember::where('status', 'Aktif')->count(),
             'total_unit' => BusinessUnit::count(),
+            'total_produk' => ProductService::count(),
+            // Keuangan Koperasi tahun berjalan — hitung() yang SAMA dengan
+            // Dashboard Koperasi & Keuangan (default: tahun ini, semua bulan).
+            'keuangan' => $this->labaRugiService->hitung('default', 'default')['total'],
+            'produk_terlaris' => $this->labaRugiService->produkTerlaris('default', 'default'),
         ];
     }
 
@@ -892,10 +903,6 @@ class DashboardController extends Controller
      */
     private function koperasiData(Request $request): array
     {
-        $tahun = (string) $request->input('tahun', 'default');
-        $bulan = (string) $request->input('bulan', 'default');
-        $unitId = $request->input('unit_id') ?: null;
-
         $stats = [
             'total_anggota' => KoperasiMember::count(),
             'anggota_aktif' => KoperasiMember::where('status', 'Aktif')->count(),
@@ -908,63 +915,18 @@ class DashboardController extends Controller
 
         $stats['total_simpanan'] = $stats['total_pokok'] + $stats['total_wajib'] + $stats['total_sukarela'];
 
-        $stats['total_transaksi'] = SalesTransaction::count();
-        $stats['total_penjualan'] = (float) SalesTransaction::sum('total');
-        $stats['transaksi_bulan_ini'] = SalesTransaction::whereMonth('tanggal', now()->month)
-            ->whereYear('tanggal', now()->year)
-            ->count();
-        $stats['penjualan_bulan_ini'] = (float) SalesTransaction::whereMonth('tanggal', now()->month)
-            ->whereYear('tanggal', now()->year)
-            ->sum('total');
-
-        $stats['pengeluaran_bulan_ini'] = (float) Pengeluaran::aktif()
-            ->whereMonth('tanggal', now()->month)
-            ->whereYear('tanggal', now()->year)
-            ->sum('nominal');
+        // Statistik lama total_transaksi/total_penjualan/penjualan_bulan_ini/
+        // pengeluaran_bulan_ini DIHAPUS: tidak dibaca view mana pun, dan
+        // rumusnya berbeda dari KPI (ikut menjumlah transaksi Draft/Dibatalkan
+        // dan pembelian stok).
 
         $stats['saldo_dana_sukarela'] = (float) DanaSukarelaMasuk::berlaku()->sum('nominal') - (float) DanaSukarelaKeluar::berlaku()->sum('nominal');
         $stats['saldo_dana_hibah'] = (float) DanaHibahMasuk::berlaku()->sum('nominal') - (float) DanaHibahKeluar::berlaku()->sum('nominal');
 
-        // ENAM KPI — semuanya dari SATU hasil LabaRugiService, sama dengan
-        // halaman Keuangan. Default: Tahun Berjalan + Semua Bulan + Semua Unit.
-        //
-        // Nama kunci *_tahun_ini dipertahankan (dibaca test & view); dengan
-        // filter terpasang isinya mengikuti periode yang dipilih.
-        //
-        // Hak Mitra dan Fee Koperasi SENGAJA tidak dijadikan KPI: hak mitra
-        // dihitung koperasi di luar sistem, dan fee hanya ada pada transaksi
-        // lama. Keduanya tetap tersimpan dan tetap ada di Keuangan/Laporan.
-        $lr = $this->labaRugiService->hitung($tahun, $bulan, $unitId);
-        $stats['penjualan_tahun_ini'] = $lr['total']['penjualan'];
-        $stats['hpp_tahun_ini'] = $lr['total']['hpp'];
-        $stats['laba_kotor_tahun_ini'] = $lr['total']['laba_kotor'];
-        $stats['pengeluaran_tahun_ini'] = $lr['total']['pengeluaran_total'];
-        $stats['piutang_aktif'] = $lr['total']['piutang'];
-        $stats['transaksi_belum_lunas'] = $lr['total']['transaksi_belum_lunas'];
-        // Bukan KPI: uang keluar yang biayanya baru masuk laba lewat HPP.
-        $stats['pembelian_stok'] = $lr['total']['pembelian_stok'];
-        // Seluruh uang keluar periode ini = total halaman Pengeluaran (Aktif).
-        $stats['uang_keluar'] = $lr['total']['pengeluaran_total'] + $lr['total']['pembelian_stok'];
-        $stats['laba_bersih_tahun_ini'] = $lr['total']['laba_bersih'];
-        $stats['unit_terbaik'] = $lr['unit_terbaik'];
-        $stats['ada_transaksi_tahun_ini'] = $lr['ada_transaksi'];
-        $perUnit = collect($lr['per_unit'])->sortByDesc('laba_bersih')->values();
+        $usaha = $this->ringkasanUsaha($request);
 
-        // Produk Terlaris — filter Tahun/Bulan/Unit yang sama dengan KPI.
-        $produkTerlaris = $this->labaRugiService->produkTerlaris($tahun, $bulan, $unitId);
-
-        $filters = ['tahun' => $tahun, 'bulan' => $bulan, 'unit_id' => $unitId];
-        $units = BusinessUnit::orderBy('nama')->get();
-
-        // Kotak "Status Pembayaran" (hitungan sepanjang waktu, termasuk
-        // transaksi Draft/Dibatalkan) diganti ringkasan Piutang dari hasil
-        // hitung() yang sama dengan KPI — periode & unit ikut filter.
-
-        $penjualanTerbaru = SalesTransaction::with(['businessUnit', 'customer'])
-            ->orderByDesc('tanggal')
-            ->orderByDesc('id')
-            ->take(5)
-            ->get();
+        // KPI ikut digabung ke $stats — kunci *_tahun_ini dibaca test.
+        $stats += $usaha['stats'];
 
         $pengeluaranTerbaru = Pengeluaran::aktif()
             ->with('businessUnit')
@@ -976,7 +938,79 @@ class DashboardController extends Controller
         // Posisi uang hari ini — dari KasBankService, sama dengan halaman Kas & Bank.
         $kasBank = app(\App\Services\KasBankService::class)->ringkasan();
 
-        return compact('stats', 'perUnit', 'produkTerlaris', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units', 'kasBank');
+        return [
+            'stats' => $stats,
+            'usaha' => $usaha,
+            'perUnit' => $usaha['perUnit'],
+            'produkTerlaris' => $usaha['produkTerlaris'],
+            'filters' => $usaha['filters'],
+            'units' => $usaha['units'],
+            'pengeluaranTerbaru' => $pengeluaranTerbaru,
+            'kasBank' => $kasBank,
+        ];
+    }
+
+    /**
+     * RINGKASAN KONDISI USAHA — dipakai BERSAMA Dashboard Koperasi (Admin)
+     * dan Dashboard Tim Koperasi, dirender oleh satu partial
+     * (dashboard._ringkasan-usaha), jadi kedua dashboard tidak mungkin
+     * berbeda angka maupun rumus.
+     *
+     * Semua angka dari LabaRugiService — sumber yang sama dengan Keuangan &
+     * Laporan. Filter Tahun/Bulan/Unit bernilai & berarti sama dengan
+     * halaman Keuangan. Default: Tahun Berjalan + Semua Bulan + Semua Unit.
+     *
+     * Hak Mitra dan Fee Koperasi SENGAJA tidak dijadikan KPI: hak mitra
+     * dihitung koperasi di luar sistem, dan fee hanya ada pada transaksi
+     * lama. Keduanya tetap tersimpan dan tetap ada di Keuangan/Laporan.
+     */
+    private function ringkasanUsaha(Request $request): array
+    {
+        $tahun = (string) $request->input('tahun', 'default');
+        $bulan = (string) $request->input('bulan', 'default');
+        $unitId = $request->input('unit_id') ?: null;
+
+        // Nama kunci *_tahun_ini dipertahankan (dibaca test & view); dengan
+        // filter terpasang isinya mengikuti periode yang dipilih.
+        $lr = $this->labaRugiService->hitung($tahun, $bulan, $unitId);
+        $stats = [
+            'penjualan_tahun_ini' => $lr['total']['penjualan'],
+            'hpp_tahun_ini' => $lr['total']['hpp'],
+            'laba_kotor_tahun_ini' => $lr['total']['laba_kotor'],
+            'pengeluaran_tahun_ini' => $lr['total']['pengeluaran_total'],
+            'piutang_aktif' => $lr['total']['piutang'],
+            'transaksi_belum_lunas' => $lr['total']['transaksi_belum_lunas'],
+            // Bukan KPI: uang keluar yang biayanya baru masuk laba lewat HPP.
+            'pembelian_stok' => $lr['total']['pembelian_stok'],
+            // Seluruh uang keluar periode ini = total halaman Pengeluaran (Aktif).
+            'uang_keluar' => $lr['total']['pengeluaran_total'] + $lr['total']['pembelian_stok'],
+            'laba_bersih_tahun_ini' => $lr['total']['laba_bersih'],
+            'unit_terbaik' => $lr['unit_terbaik'],
+            'ada_transaksi_tahun_ini' => $lr['ada_transaksi'],
+        ];
+
+        // Transaksi Terbaru — beberapa transaksi terakhir yang ikut dihitung
+        // KPI (tanpa Draft/Dibatalkan). Tidak dibatasi periode: "terbaru".
+        $query = SalesTransaction::with('customer')
+            ->whereNotIn('status_transaksi', ['Draft', 'Dibatalkan'])
+            ->orderByDesc('tanggal')
+            ->orderByDesc('id')
+            ->take(5);
+        if ($unitId && $unitId !== 'operasional') {
+            $query->where('unit_id', $unitId);
+        }
+
+        return [
+            'stats' => $stats,
+            'perUnit' => collect($lr['per_unit'])->sortByDesc('laba_bersih')->values(),
+            // Produk Terlaris = jumlah unit; Penjualan Terbesar = Rupiah.
+            // Filter Tahun/Bulan/Unit yang sama dengan KPI.
+            'produkTerlaris' => $this->labaRugiService->produkTerlaris($tahun, $bulan, $unitId),
+            'penjualanTerbesar' => $this->labaRugiService->penjualanTerbesar($tahun, $bulan, $unitId),
+            'transaksiTerbaru' => $unitId === 'operasional' ? collect() : $query->get(),
+            'filters' => ['tahun' => $tahun, 'bulan' => $bulan, 'unit_id' => $unitId],
+            'units' => BusinessUnit::orderBy('nama')->get(),
+        ];
     }
 
     /**
@@ -1000,6 +1034,8 @@ class DashboardController extends Controller
         $ringkasan = [
             'total_peserta' => $totalPeserta,
             'peserta_aktif' => Participant::where('status', 'Aktif')->count(),
+            // Status peserta yang dicatat — sama dengan Dashboard Admin.
+            'peserta_berkembang' => Participant::where('status', 'Berkembang')->count(),
             'total_pendamping' => Pendamping::count(),
             'total_omzet' => (int) OmzetReport::where('periode_tahun', $tahun)
                 ->when($bulan, fn ($q) => $q->where('periode_bulan', $bulan))
@@ -1134,28 +1170,21 @@ class DashboardController extends Controller
             ->filter(fn ($u) => $u['laba_bersih'] < 0 && ($u['penjualan'] > 0 || $u['pengeluaran'] > 0))
             ->values();
 
-        // Grafik Penjualan Koperasi per bulan (trend, pola sama seperti grafik omzet Cahaya Preneur).
-        //
-        // Pengelompokan per bulan SENGAJA dilakukan di PHP, bukan lewat
-        // selectRaw('MONTH(tanggal)'). MONTH() itu fungsi khusus MySQL —
-        // satu-satunya SQL driver-specific yang tersisa di aplikasi ini — dan
-        // bikin halaman ini error total di driver lain (mis. SQLite yang dipakai
-        // environment test: "no such function: MONTH"). whereYear() di bawah
-        // TETAP dipakai karena itu API Laravel yang sudah portabel antar driver.
-        //
-        // Hasil akhirnya sama persis: Collection dengan key = nomor bulan (1-12)
-        // dan value = total penjualan bulan itu. Filter status & tahun tidak
-        // berubah sama sekali, jadi angkanya identik dengan sebelumnya.
-        $penjualanPerBulanRaw = SalesTransaction::whereNotIn('status_transaksi', ['Draft', 'Dibatalkan'])
-            ->whereYear('tanggal', $tahun)
-            ->get(['tanggal', 'total'])
-            ->groupBy(fn (SalesTransaction $t) => (int) $t->tanggal->month)
-            ->map(fn ($rows) => (int) $rows->sum('total'));
+        // TREN PENJUALAN per bulan — dari LabaRugiService::penjualanPerBulan(),
+        // definisi yang SAMA dengan KPI Total Penjualan (SUM subtotal item).
+        // Sebelumnya dijumlah dari kolom `total` transaksi, yang ikut memuat
+        // ongkir & diskon transaksi, jadi bisa berbeda dari Total Penjualan.
+        // Portabel antar driver (whereYear/whereMonth), tanpa MONTH() MySQL.
+        $penjualanPerBulan = $this->labaRugiService->penjualanPerBulan($tahun);
 
         $koperasiChart = [
             'labels' => array_values($namaBulan),
-            'data' => collect(range(1, 12))->map(fn ($b) => (int) ($penjualanPerBulanRaw[$b] ?? 0))->all(),
+            'data' => collect(range(1, 12))->map(fn ($b) => (int) round($penjualanPerBulan[$b]))->all(),
         ];
+
+        // Produk Terlaris — jumlah unit terjual, periode yang sama dengan
+        // kartu Koperasi. Pimpinan hanya melihat nama & jumlah: tanpa HPP.
+        $produkTerlaris = $this->labaRugiService->produkTerlaris($lrTahun, $lrBulan);
 
         return view('dashboard-pimpinan', [
             'tahun' => $tahun,
@@ -1202,6 +1231,7 @@ class DashboardController extends Controller
             'adaAktivitasKoperasi' => $adaAktivitasKoperasi,
             'unitPerluPerhatian' => $unitPerluPerhatian,
             'koperasiChart' => $koperasiChart,
+            'produkTerlaris' => $produkTerlaris,
         ]);
     }
 }

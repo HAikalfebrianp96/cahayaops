@@ -82,6 +82,39 @@ class SalesTransactionItem extends Model
         return $pesan;
     }
 
+    /**
+     * KETERANGAN HPP Rp0 — HPP Rp0 tetap VALID (lihat peringatanHpp()); ini
+     * hanya pengingat agar alasannya tercatat. Tidak pernah mengubah data.
+     *
+     * - Catatan item sudah diisi (mis. "Barang diperoleh gratis") -> diam.
+     * - Produk master punya harga modal > 0 tapi snapshot Rp0 -> 'peringatan':
+     *   untuk produk biasa ini tidak lazim, periksa bila bukan barang gratis.
+     * - Selain itu -> 'info': wajar untuk barang gratis, sarankan mengisi
+     *   Catatan item supaya pembaca laporan tahu alasannya.
+     *
+     * @return array{tingkat: 'info'|'peringatan', pesan: string}|null
+     */
+    public function keteranganHppNol(): ?array
+    {
+        if ((float) $this->harga_modal_snapshot != 0.0 || (float) $this->harga_jual_snapshot <= 0 || filled($this->catatan)) {
+            return null;
+        }
+
+        $modalMaster = (float) ($this->productService?->harga_modal ?? 0);
+        if ($modalMaster > 0) {
+            return [
+                'tingkat' => 'peringatan',
+                'pesan' => 'HPP Rp0, padahal harga modal di master produk ' . rupiah($modalMaster)
+                    . '. Wajar bila barangnya gratis — bila tidak, periksa kembali nilai modal.',
+            ];
+        }
+
+        return [
+            'tingkat' => 'info',
+            'pesan' => 'HPP Rp0 — wajar bila barang diperoleh gratis. Tambahkan alasannya di Catatan item agar jelas.',
+        ];
+    }
+
     public function salesTransaction(): BelongsTo
     {
         return $this->belongsTo(SalesTransaction::class);

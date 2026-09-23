@@ -469,7 +469,7 @@ class SalesTransactionController extends Controller
         // unit dan pelanggannya, bukan berubah jadi "—" begitu keduanya
         // diarsipkan. Kehilangan identitas di layar histori sama merugikannya
         // dengan halaman yang gagal terbuka, dan jauh lebih mudah lolos.
-        $transaksi->load(['businessUnitTermasukArsip', 'customerTermasukArsip', 'items', 'invoice', 'creator', 'pembayaran.akunKas', 'pembayaran.pembatal']);
+        $transaksi->load(['businessUnitTermasukArsip', 'customerTermasukArsip', 'items.productService', 'invoice', 'creator', 'pembayaran.akunKas', 'pembayaran.pembatal']);
 
         return view('koperasi.penjualan.show', [
             'transaksi' => $transaksi,

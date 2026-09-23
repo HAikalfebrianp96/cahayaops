@@ -1,7 +1,31 @@
-{{-- PANEL: SEMUA KEGIATAN — tab netral default.
-     SENGAJA ringkas: cuma jumlah data pokok kedua modul berdampingan, tanpa
-     angka keuangan. Rinciannya ada di panel modul masing-masing, jadi di sini
-     tidak ada angka yang perlu dijaga konsistensinya dengan LabaRugiService. --}}
+{{-- PANEL: SEMUA KEGIATAN — tab default Admin, pusat monitoring.
+     Keuangan Koperasi tahun berjalan (enam angka dari LabaRugiService, sama
+     dengan Dashboard Koperasi & Keuangan), lalu hitungan pokok kedua modul.
+     Rinciannya ada di panel/modul masing-masing. --}}
+@php $keu = $ringkasanSemua['keuangan']; @endphp
+<div class="space-y-3">
+    <div class="flex items-baseline justify-between flex-wrap gap-x-3 gap-y-1">
+        <h3 class="text-[15px] font-semibold text-text-main">Keuangan Koperasi</h3>
+        <p class="text-xs text-text-secondary">Periode: Tahun {{ now()->year }}, semua bulan ·
+            <a href="{{ route('dashboard', ['modul' => 'koperasi']) }}" class="text-status-info hover:underline">Rincian &amp; filter</a></p>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        @foreach ([
+            ['Total Penjualan', $keu['penjualan'], 'text-text-main'],
+            ['HPP Terjual', $keu['hpp'], 'text-text-main'],
+            ['Laba Kotor', $keu['laba_kotor'], 'text-status-info'],
+            ['Pengeluaran Operasional', $keu['pengeluaran_total'], 'text-status-danger'],
+            ['Piutang Aktif', $keu['piutang'], 'text-cahaya-accent'],
+            ['Laba Bersih', $keu['laba_bersih'], $keu['laba_bersih'] >= 0 ? 'text-status-success' : 'text-status-danger'],
+        ] as [$label, $nilai, $warna])
+            <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-4 min-w-0">
+                <p class="text-[11px] font-medium text-text-secondary mb-1.5">{{ $label }}</p>
+                <p class="text-base font-bold {{ $warna }} break-words">{{ rupiah($nilai) }}</p>
+            </div>
+        @endforeach
+    </div>
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
     {{-- CAHAYA PRENEUR --}}
@@ -28,8 +52,8 @@
                 <p class="text-[11px] text-text-secondary mt-1">Peserta Aktif</p>
             </div>
             <div class="bg-surface-bg rounded-xl p-4">
-                <p class="text-xl font-bold text-text-main">{{ $ringkasanSemua['total_pendamping'] }}</p>
-                <p class="text-[11px] text-text-secondary mt-1">Pendamping</p>
+                <p class="text-xl font-bold text-text-main">{{ $ringkasanSemua['peserta_berkembang'] }}</p>
+                <p class="text-[11px] text-text-secondary mt-1">Peserta Berkembang</p>
             </div>
         </div>
     </div>
@@ -54,13 +78,30 @@
                 <p class="text-[11px] text-text-secondary mt-1">Anggota</p>
             </div>
             <div class="bg-surface-bg rounded-xl p-4">
-                <p class="text-xl font-bold text-text-main">{{ $ringkasanSemua['anggota_aktif'] }}</p>
-                <p class="text-[11px] text-text-secondary mt-1">Anggota Aktif</p>
+                <p class="text-xl font-bold text-text-main">{{ $ringkasanSemua['total_produk'] }}</p>
+                <p class="text-[11px] text-text-secondary mt-1">Produk</p>
             </div>
             <div class="bg-surface-bg rounded-xl p-4">
                 <p class="text-xl font-bold text-text-main">{{ $ringkasanSemua['total_unit'] }}</p>
                 <p class="text-[11px] text-text-secondary mt-1">Unit Usaha</p>
             </div>
+        </div>
+
+        {{-- PRODUK TERLARIS tahun berjalan — jumlah unit terjual. --}}
+        <div class="mt-4">
+            <p class="text-[13px] font-semibold text-text-main mb-2">Produk Terlaris <span class="text-[11px] font-normal text-text-secondary">· Tahun {{ now()->year }}</span></p>
+            @if (empty($ringkasanSemua['produk_terlaris']))
+                <p class="text-xs text-text-secondary italic">Belum ada data penjualan.</p>
+            @else
+                <ol class="space-y-1.5 text-sm">
+                    @foreach ($ringkasanSemua['produk_terlaris'] as $i => $p)
+                        <li class="flex items-baseline justify-between gap-3">
+                            <span class="min-w-0 text-text-main"><span class="text-text-secondary mr-1">{{ $i + 1 }}.</span>{{ $p['nama'] }}</span>
+                            <span class="font-semibold text-text-main whitespace-nowrap">{{ number_format($p['qty'], 0, ',', '.') }} terjual</span>
+                        </li>
+                    @endforeach
+                </ol>
+            @endif
         </div>
     </div>
 </div>

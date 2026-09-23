@@ -40,10 +40,17 @@ class DashboardSwitcherTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Semua Kegiatan');
-        // Ringkasan gabungan kedua modul.
+        // Pusat monitoring: Keuangan Koperasi + ringkasan kedua modul.
+        $response->assertSeeInOrder(['Keuangan Koperasi', 'Total Penjualan', 'HPP Terjual', 'Laba Kotor',
+            'Pengeluaran Operasional', 'Piutang Aktif', 'Laba Bersih']);
         $response->assertSee('Peserta Aktif');
-        $response->assertSee('Anggota Aktif');
+        $response->assertSee('Peserta Berkembang');
+        $response->assertSee('Anggota');
+        $response->assertSee('Produk');
+        $response->assertSee('Produk Terlaris');
         $response->assertSee('Unit Usaha');
+        // Hak Mitra & Fee bukan KPI utama.
+        $response->assertDontSee('Hak Mitra');
 
         // TIDAK memuat statistik khas salah satu modul.
         $response->assertDontSee('Fee Titip Jual');
@@ -221,8 +228,10 @@ class DashboardSwitcherTest extends TestCase
 
         // 2 transaksi di bulan yang SAMA (harus dijumlahkan jadi satu titik),
         // 1 di bulan lain, dan 1 "Dibatalkan" yang HARUS diabaikan.
+        // Tiap transaksi punya item — tren memakai definisi yang SAMA dengan
+        // KPI Total Penjualan (SUM subtotal item, LabaRugiService).
         $buat = function (string $tanggal, int $total, string $status) use ($unit) {
-            return \App\Models\SalesTransaction::create([
+            $trx = \App\Models\SalesTransaction::create([
                 'unit_id' => $unit->id,
                 'tanggal' => $tanggal,
                 'status_transaksi' => $status,
@@ -233,6 +242,13 @@ class DashboardSwitcherTest extends TestCase
                 'status_pembayaran' => 'Lunas',
                 'dp_nominal' => $total,
             ]);
+            $trx->items()->create([
+                'product_service_id' => null, 'nama_snapshot' => 'Produk Uji', 'jenis_snapshot' => 'Produk',
+                'qty' => 1, 'harga_jual_snapshot' => $total, 'harga_modal_snapshot' => 0,
+                'diskon' => 0, 'subtotal' => $total,
+            ]);
+
+            return $trx;
         };
 
         $tahun = now()->year;
@@ -251,6 +267,10 @@ class DashboardSwitcherTest extends TestCase
         $this->assertSame(150000, $data[2], 'Maret harus 100.000 + 50.000');
         $this->assertSame(70000, $data[6], 'Juli harus 70.000 saja (yang Dibatalkan diabaikan)');
         $this->assertSame(0, $data[0], 'Januari tidak ada transaksi');
+
+        // Jumlah tren setahun = Total Penjualan setahun (satu definisi).
+        $total = app(\App\Services\LabaRugiService::class)->hitung((string) $tahun, 'semua')['total']['penjualan'];
+        $this->assertEquals($total, array_sum($data));
     }
 
     /**

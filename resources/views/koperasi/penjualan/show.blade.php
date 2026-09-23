@@ -114,6 +114,8 @@
                             @endif
                             @if ($item->catatan)<br><span class="text-xs text-text-secondary">{{ $item->catatan }}</span>@endif
                             @if ($peringatanHpp)<br><span class="text-xs text-status-warning font-medium">{{ $peringatanHpp }}</span>@endif
+                            {{-- HPP Rp0 tetap valid (mis. barang gratis) — hanya pengingat agar alasannya tercatat. --}}
+                            @if ($lihatHpp && ($hppNol = $item->keteranganHppNol()))<br><span class="text-xs {{ $hppNol['tingkat'] === 'peringatan' ? 'text-status-warning font-medium' : 'text-text-secondary' }}">{{ $hppNol['pesan'] }}</span>@endif
                         </td>
                         <td class="py-2 pr-2 text-text-secondary text-right">{{ $item->qty }}</td>
                         <td class="py-2 pr-2 text-text-secondary text-right">{{ rupiah($item->harga_jual_snapshot) }}</td>

@@ -175,6 +175,52 @@ class LabaRugiService
      */
     public function produkTerlaris(string $tahun = 'default', string $bulan = 'default', ?string $unitId = null, int $limit = 5): array
     {
+        return $this->peringkatProduk($tahun, $bulan, $unitId, $limit, [['qty', 'desc'], ['omzet', 'desc'], ['nama', 'asc']]);
+    }
+
+    /**
+     * PENJUALAN TERBESAR — peringkat produk menurut NILAI PENJUALAN (Rupiah).
+     *
+     * Beda dari produkTerlaris() hanya urutannya: produk mahal yang terjual
+     * sedikit bisa menyumbang omzet terbesar. Agregat, aturan transaksi,
+     * periode, dan filter unit identik.
+     *
+     * @return array<int, array{nama: string, qty: int, omzet: float, hpp: float, profit: float}>
+     */
+    public function penjualanTerbesar(string $tahun = 'default', string $bulan = 'default', ?string $unitId = null, int $limit = 5): array
+    {
+        return $this->peringkatProduk($tahun, $bulan, $unitId, $limit, [['omzet', 'desc'], ['qty', 'desc'], ['nama', 'asc']]);
+    }
+
+    /**
+     * TREN PENJUALAN — Penjualan per bulan (1..12) dalam satu tahun, dengan
+     * definisi yang SAMA dengan KPI Total Penjualan: SUM(subtotal item),
+     * tanpa Draft & Dibatalkan, unit yang masih ada. Jumlah ke-12 bulan =
+     * hitung($tahun, 'semua')['total']['penjualan'].
+     *
+     * Dua belas SUM per bulan (whereMonth) — portabel antar driver, tidak
+     * memuat baris item ke memori.
+     *
+     * @return array<int, float>
+     */
+    public function penjualanPerBulan(int $tahun, ?string $unitId = null): array
+    {
+        $hasil = [];
+        foreach (range(1, 12) as $bulan) {
+            $query = SalesTransactionItem::query()
+                ->join('sales_transactions as st', 'st.id', '=', 'sales_transaction_items.sales_transaction_id')
+                ->whereNotIn('st.status_transaksi', ['Draft', 'Dibatalkan'])
+                ->whereIn('st.unit_id', BusinessUnit::select('id'));
+            $this->applyPeriode($query, (string) $tahun, (string) $bulan, 'st.tanggal');
+            $this->applyUnit($query, $unitId, 'st.unit_id');
+            $hasil[$bulan] = (float) $query->sum('sales_transaction_items.subtotal');
+        }
+
+        return $hasil;
+    }
+
+    private function peringkatProduk(string $tahun, string $bulan, ?string $unitId, int $limit, array $urutan): array
+    {
         $query = SalesTransactionItem::query()
             ->join('sales_transactions as st', 'st.id', '=', 'sales_transaction_items.sales_transaction_id')
             ->whereNotIn('st.status_transaksi', ['Draft', 'Dibatalkan'])
@@ -202,7 +248,7 @@ class LabaRugiService
 
         $teratas = collect($gabung)
             ->filter(fn ($p) => $p['qty'] > 0)
-            ->sortBy([['qty', 'desc'], ['omzet', 'desc'], ['nama', 'asc']])
+            ->sortBy($urutan)
             ->take($limit)
             ->values();
 

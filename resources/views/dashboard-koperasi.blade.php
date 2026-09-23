@@ -6,9 +6,10 @@
 {{-- ============================================================
      DASHBOARD TIM KOPERASI.
 
-     Fokus keanggotaan & integrasi dengan Cahaya Preneur. SENGAJA tidak
-     memuat laba rugi, arus dana sosial/hibah, maupun ringkasan program
-     Cahaya Preneur — ketiganya di luar kewenangan Tim Koperasi.
+     Kondisi usaha (enam KPI laba rugi — angka yang sama dengan halaman
+     Keuangan yang memang boleh dibuka Tim Koperasi), lalu keanggotaan &
+     integrasi dengan Cahaya Preneur. SENGAJA tidak memuat arus dana
+     sosial/hibah maupun ringkasan program Cahaya Preneur.
      ============================================================ --}}
 <div class="space-y-6">
 
@@ -64,6 +65,11 @@
             </p>
         @endif
     </a>
+
+    {{-- KONDISI USAHA — partial & sumber yang SAMA dengan Dashboard Koperasi
+         milik Admin (LabaRugiService): enam KPI, Produk Terlaris, Penjualan
+         Terbesar, Transaksi Terbaru, Pengeluaran & Piutang. --}}
+    @include('dashboard._ringkasan-usaha')
 
     {{-- AKSI CEPAT --}}
     <div class="flex flex-wrap gap-2">

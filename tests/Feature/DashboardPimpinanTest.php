@@ -231,13 +231,21 @@ class DashboardPimpinanTest extends TestCase
 
         foreach ([
             // Cahaya Preneur
-            'Total Peserta', 'Peserta Aktif', 'Total Omzet',
-            'Pendamping', 'Kegiatan Pendampingan', 'Omzet Meningkat', 'Kenaikan omzet terukur',
+            'Total Peserta', 'Peserta Aktif', 'Peserta Berkembang',
+            'Total Omzet', 'Pendamping', 'Omzet Meningkat', 'Kenaikan omzet terukur',
             // Koperasi Cahaya
-            'Total Anggota', 'Anggota Aktif', 'Total Penjualan',
-            'Unit Usaha', 'Laba Kotor', 'Pengeluaran',
+            'Total Penjualan', 'Laba Bersih', 'Total Anggota',
+            'Anggota Aktif', 'Unit Usaha', 'Simpanan Anggota',
+            // Perkembangan
+            'Produk Terlaris', 'Tren Penjualan',
         ] as $label) {
             $respons->assertSee($label);
+        }
+
+        // Pimpinan melihat hasil, bukan operasional: tanpa HPP, rincian
+        // pengeluaran, maupun KPI kerja pendamping.
+        foreach (['HPP', 'Laba Kotor', 'Pengeluaran Operasional', 'Kegiatan Pendampingan'] as $label) {
+            $respons->assertDontSee($label);
         }
     }
 
@@ -247,7 +255,8 @@ class DashboardPimpinanTest extends TestCase
 
         $this->actingAs($this->pimpinan())->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Laba bersih')
+            // Laba Bersih kini salah satu dari tiga KPI utama Koperasi.
+            ->assertSeeInOrder(['Total Penjualan', 'Laba Bersih', 'Total Anggota'])
             ->assertDontSee('Belum ada transaksi pada periode ini.');
     }
 

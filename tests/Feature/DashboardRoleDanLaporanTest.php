@@ -203,17 +203,21 @@ class DashboardRoleDanLaporanTest extends TestCase
     }
 
     /**
-     * Dashboard Tim Koperasi TIDAK memuat angka di luar kewenangannya —
-     * laba rugi & arus dana adalah urusan Admin.
+     * Dashboard Tim Koperasi fokus pada KONDISI USAHA (keputusan 23 Sep 2026):
+     * enam KPI laba rugi — angka yang sama dengan halaman Keuangan, yang
+     * memang boleh dibuka Tim Koperasi. Arus dana sosial & hibah tetap
+     * TIDAK dimuat, begitu pula Hak Mitra/Fee sebagai KPI.
      */
-    public function test_dashboard_koperasi_tidak_memuat_angka_di_luar_kewenangan(): void
+    public function test_dashboard_koperasi_fokus_kondisi_usaha_tanpa_dana_sosial(): void
     {
         $this->actingAs($this->timKoperasi)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertDontSee('Laba Rugi')
+            ->assertSeeInOrder(['Total Penjualan', 'HPP Terjual', 'Laba Kotor', 'Pengeluaran Operasional',
+                'Piutang Aktif', 'Laba Bersih', 'Produk Terlaris', 'Penjualan Terbesar', 'Transaksi Terbaru'])
             ->assertDontSee('Dana Hibah')
-            ->assertDontSee('Dana Sosial');
+            ->assertDontSee('Dana Sosial')
+            ->assertDontSee('Hak Mitra');
     }
 
     public function test_statistik_koperasi_benar(): void

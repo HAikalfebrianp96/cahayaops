@@ -178,22 +178,24 @@
                     <p class="text-xs text-text-secondary mt-2 leading-snug">Peserta Aktif</p>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-[19px] lg:text-[22px] font-bold text-cahaya-primary leading-none tabular-nums break-words">{{ rupiah($ringkasan['total_omzet']) }}</p>
-                    <p class="text-xs text-text-secondary mt-2 leading-snug">Total Omzet</p>
+                    <p class="text-[26px] font-bold text-cahaya-primary leading-none tabular-nums">{{ $ringkasan['peserta_berkembang'] }}</p>
+                    <p class="text-xs text-text-secondary mt-2 leading-snug">Peserta Berkembang</p>
                 </div>
             </div>
 
             {{-- KPI PENDUKUNG — "Omzet Meningkat" adalah satu-satunya indikator
                  Dampak Program yang ikut ditampilkan sebagai angka; sisanya
-                 diringkas jadi satu baris penutup di bawah. --}}
+                 diringkas jadi satu baris penutup di bawah. Jumlah kegiatan
+                 pendampingan tidak ditampilkan: itu KPI kerja pendamping,
+                 bukan hasil yang dinilai Pimpinan. --}}
             <div class="grid grid-cols-3 gap-4 mt-6 pt-5 border-t border-border-soft">
+                <div class="min-w-0">
+                    <p class="text-lg font-semibold text-text-main leading-none tabular-nums break-words">{{ rupiah($ringkasan['total_omzet']) }}</p>
+                    <p class="text-xs text-text-secondary mt-2 leading-snug">Total Omzet</p>
+                </div>
                 <div class="min-w-0">
                     <p class="text-lg font-semibold text-text-main leading-none tabular-nums">{{ $ringkasan['total_pendamping'] }}</p>
                     <p class="text-xs text-text-secondary mt-2 leading-snug">Pendamping</p>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-lg font-semibold text-text-main leading-none tabular-nums">{{ $ringkasan['total_pendampingan'] }}</p>
-                    <p class="text-xs text-text-secondary mt-2 leading-snug">Kegiatan Pendampingan</p>
                 </div>
                 <div class="min-w-0">
                     <p class="text-lg font-semibold text-status-success leading-none tabular-nums">{{ $impactProgram['omzet_meningkat'] }}</p>
@@ -236,36 +238,35 @@
             {{-- KPI UTAMA --}}
             <div class="grid grid-cols-3 gap-4 mt-6">
                 <div class="min-w-0">
-                    <p class="text-[26px] font-bold text-koperasi-primary leading-none tabular-nums">{{ $koperasiRingkasan['total_anggota'] }}</p>
-                    <p class="text-xs text-text-secondary mt-2 leading-snug">Total Anggota</p>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-[26px] font-bold text-koperasi-primary leading-none tabular-nums">{{ $koperasiRingkasan['anggota_aktif'] }}</p>
-                    <p class="text-xs text-text-secondary mt-2 leading-snug">Anggota Aktif</p>
-                </div>
-                <div class="min-w-0">
                     <p class="text-[19px] lg:text-[22px] font-bold text-koperasi-primary leading-none tabular-nums break-words">{{ rupiah($koperasiRingkasan['total_penjualan']) }}</p>
                     <p class="text-xs text-text-secondary mt-2 leading-snug">Total Penjualan</p>
                 </div>
+                <div class="min-w-0">
+                    @if ($adaAktivitasKoperasi)
+                        <p class="text-[19px] lg:text-[22px] font-bold leading-none tabular-nums break-words {{ $koperasiRingkasan['laba_bersih'] >= 0 ? 'text-koperasi-primary' : 'text-status-danger' }}">{{ rupiah($koperasiRingkasan['laba_bersih']) }}</p>
+                    @else
+                        <p class="text-[19px] lg:text-[22px] font-bold text-text-secondary leading-none">—</p>
+                    @endif
+                    <p class="text-xs text-text-secondary mt-2 leading-snug">Laba Bersih</p>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-[26px] font-bold text-koperasi-primary leading-none tabular-nums">{{ $koperasiRingkasan['total_anggota'] }}</p>
+                    <p class="text-xs text-text-secondary mt-2 leading-snug">Total Anggota</p>
+                </div>
             </div>
 
-            {{-- KPI PENDUKUNG
-                 Simpanan Anggota ditambahkan di sini, bukan sebagai kartu
-                 besar: yang dinilai Pimpinan lebih dulu tetap anggota dan
-                 penjualan. Kolomnya menjadi empat, dan dua-per-baris di
-                 ponsel supaya angkanya tidak tergencet. --}}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-5 border-t border-border-soft">
+            {{-- KPI PENDUKUNG — Anggota Aktif, Unit Usaha, Simpanan Anggota.
+                 Laba Kotor & Pengeluaran tidak ditampilkan untuk Pimpinan:
+                 hasil akhirnya (Laba Bersih) sudah di atas, rinciannya ada di
+                 Laporan Koperasi. --}}
+            <div class="grid grid-cols-3 gap-4 mt-6 pt-5 border-t border-border-soft">
+                <div class="min-w-0">
+                    <p class="text-lg font-semibold text-text-main leading-none tabular-nums">{{ $koperasiRingkasan['anggota_aktif'] }}</p>
+                    <p class="text-xs text-text-secondary mt-2 leading-snug">Anggota Aktif</p>
+                </div>
                 <div class="min-w-0">
                     <p class="text-lg font-semibold text-text-main leading-none tabular-nums">{{ $koperasiRingkasan['total_unit'] }}</p>
                     <p class="text-xs text-text-secondary mt-2 leading-snug">Unit Usaha</p>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-lg font-semibold text-text-main leading-none tabular-nums break-words">{{ rupiah($kinerjaKoperasi['laba_kotor']) }}</p>
-                    <p class="text-xs text-text-secondary mt-2 leading-snug">Laba Kotor</p>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-lg font-semibold text-text-main leading-none tabular-nums break-words">{{ rupiah($kinerjaKoperasi['pengeluaran_total']) }}</p>
-                    <p class="text-xs text-text-secondary mt-2 leading-snug">Pengeluaran</p>
                 </div>
                 <div class="min-w-0">
                     <p class="text-lg font-semibold text-text-main leading-none tabular-nums break-words">{{ rupiah($koperasiRingkasan['total_simpanan']) }}</p>
@@ -291,16 +292,9 @@
             @endif
 
             {{-- BARIS PENUTUP --}}
-            <p class="text-xs text-text-secondary mt-6">
-                @if ($adaAktivitasKoperasi)
-                    Laba bersih:
-                    <span class="font-semibold {{ $koperasiRingkasan['laba_bersih'] >= 0 ? 'text-status-success' : 'text-status-danger' }}">
-                        {{ rupiah($koperasiRingkasan['laba_bersih']) }}
-                    </span>
-                @else
-                    Belum ada transaksi pada periode ini.
-                @endif
-            </p>
+            @unless ($adaAktivitasKoperasi)
+                <p class="text-xs text-text-secondary mt-6">Belum ada transaksi pada periode ini.</p>
+            @endunless
 
             {{-- CTA — route EXISTING. Laporan Koperasi dijaga
                  isAdmin() || isPimpinan(), jadi aman untuk Pimpinan. Dashboard
@@ -323,6 +317,51 @@
             </div>
         </section>
 
+    </div>
+
+    {{--
+        PERKEMBANGAN KOPERASI — Produk Terlaris (jumlah unit) dan Tren
+        Penjualan per bulan. Keduanya dari LabaRugiService, definisi sama
+        dengan Total Penjualan di atas. Sengaja tanpa HPP, profit per produk,
+        maupun rincian transaksi: Pimpinan melihat hasil, bukan operasional.
+    --}}
+    @php
+        $maksTren = max(1, max($koperasiChart['data']));
+        $labelPeriodeKoperasi = ($bulan ? ($bulanOptions[$bulan] ?? '') . ' ' : 'Tahun ') . $tahun;
+    @endphp
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <section class="bg-white rounded-2xl border border-border-soft p-6">
+            <h3 class="text-[15px] font-semibold text-text-main">Produk Terlaris</h3>
+            <p class="text-[11px] text-text-secondary mt-0.5 mb-4">{{ $labelPeriodeKoperasi }} · berdasarkan jumlah terjual</p>
+            @if (empty($produkTerlaris))
+                <p class="text-sm text-text-secondary italic">Belum ada data penjualan.</p>
+            @else
+                <ol class="space-y-2.5 text-sm">
+                    @foreach ($produkTerlaris as $i => $p)
+                        <li class="flex items-baseline justify-between gap-3">
+                            <span class="min-w-0"><span class="font-semibold {{ $i === 0 ? 'text-cahaya-accent' : 'text-text-secondary' }} mr-1.5">{{ $i + 1 }}.</span><span class="font-medium text-text-main">{{ $p['nama'] }}</span></span>
+                            <span class="font-bold text-text-main whitespace-nowrap">{{ number_format($p['qty'], 0, ',', '.') }} terjual</span>
+                        </li>
+                    @endforeach
+                </ol>
+            @endif
+        </section>
+
+        <section class="bg-white rounded-2xl border border-border-soft p-6">
+            <h3 class="text-[15px] font-semibold text-text-main">Tren Penjualan</h3>
+            <p class="text-[11px] text-text-secondary mt-0.5 mb-4">Penjualan Koperasi per bulan · Tahun {{ $tahun }}</p>
+            <div class="space-y-1.5">
+                @foreach ($koperasiChart['data'] as $i => $nilai)
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="w-9 flex-shrink-0 text-text-secondary">{{ mb_substr($koperasiChart['labels'][$i], 0, 3) }}</span>
+                        <span class="flex-1 h-2.5 rounded-full bg-surface-bg overflow-hidden" aria-hidden="true">
+                            <span class="block h-full rounded-full bg-koperasi-primary" style="width: {{ round($nilai / $maksTren * 100, 1) }}%"></span>
+                        </span>
+                        <span class="w-28 flex-shrink-0 text-right tabular-nums {{ $nilai > 0 ? 'text-text-main font-medium' : 'text-text-secondary' }}">{{ rupiah($nilai) }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </section>
     </div>
 
     {{--
