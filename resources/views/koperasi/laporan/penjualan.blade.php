@@ -46,7 +46,7 @@
 
     <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div class="bg-white border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Jumlah Transaksi</p><p class="font-bold">{{ $jumlahTransaksi }}</p></div>
-        <div class="bg-white border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Total Penjualan</p><p class="font-bold">{{ rupiah($totalPenjualan) }}</p></div>
+        <div class="bg-white border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary" title="Yang harus dibayar pelanggan: setelah diskon, termasuk ongkir yang ditanggung pelanggan. Penjualan untuk laba rugi ada di Laporan Laba Rugi.">Total Tagihan</p><p class="font-bold">{{ rupiah($totalPenjualan) }}</p></div>
         <div class="bg-white border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Total Dibayar</p><p class="font-bold">{{ rupiah($totalDibayar) }}</p></div>
         <div class="bg-white border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Total Sisa</p><p class="font-bold">{{ rupiah($totalSisa) }}</p></div>
         <div class="bg-white border border-border-soft rounded-lg p-3"><p class="text-xs text-text-secondary">Total Fee Koperasi</p><p class="font-bold">{{ rupiah($totalFee) }}</p></div>

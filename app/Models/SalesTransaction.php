@@ -259,17 +259,18 @@ class SalesTransaction extends Model
     /**
      * "Estimasi Profit" (BUKAN Laba Bersih — Pengeluaran belum diperhitungkan).
      *
-     *     Total Penjualan - Total Modal/HPP
+     *     (Total item - Diskon transaksi) - Total Modal/HPP
      *
      * Hak Mitra TIDAK dikurangkan di sini. Kalau modal item itu memang sudah
      * mewakili biaya yang sama, mengurangkannya lagi membuat satu biaya
-     * terhitung dua kali dan profitnya lebih kecil dari kenyataan.
+     * terhitung dua kali dan profitnya lebih kecil dari kenyataan. Ongkir
+     * bukan penjualan dan tidak ikut.
      *
      * Logikanya sengaja dibuat sama persis dengan LabaRugiService.
      */
     public function estimasiProfit(): float
     {
-        return (float) $this->items->sum('subtotal') - $this->totalHpp();
+        return (float) $this->items->sum('subtotal') - (float) $this->diskon - $this->totalHpp();
     }
 
     public function totalQty(): int

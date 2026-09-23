@@ -23,7 +23,7 @@
     <table class="grid5">
         <tr>
             <td class="box"><p>Jumlah Transaksi</p><p>{{ $jumlahTransaksi }}</p></td>
-            <td class="box"><p>Total Penjualan</p><p>{{ rupiah($totalPenjualan) }}</p></td>
+            <td class="box"><p>Total Tagihan</p><p>{{ rupiah($totalPenjualan) }}</p></td>
             <td class="box"><p>Total Dibayar</p><p>{{ rupiah($totalDibayar) }}</p></td>
             <td class="box"><p>Total Sisa</p><p>{{ rupiah($totalSisa) }}</p></td>
             <td class="box"><p>Total Fee</p><p>{{ rupiah($totalFee) }}</p></td>

@@ -14,9 +14,10 @@ class LabaRugiService
      * Hitung Laba Rugi untuk periode & unit tertentu.
      *
      * Prinsip:
-     * - SETIAP item masuk Penjualan (subtotal) dan HPP (qty x
-     *   harga_modal_snapshot); Laba Kotor = Penjualan - HPP. Tidak ada lagi
-     *   item yang dikecualikan karena jenisnya ("Titip Jual" sudah dihapus).
+     * - Penjualan = SUM(subtotal item) - diskon transaksi (penjualan bersih);
+     *   ongkir bukan Penjualan. HPP = SUM(qty x harga_modal_snapshot);
+     *   Laba Kotor = Penjualan - HPP. Tidak ada item yang dikecualikan
+     *   karena jenisnya ("Titip Jual" sudah dihapus).
      * - Hak Mitra dicatat BERDAMPINGAN, tidak mengurangi laba.
      * - Fee Koperasi hanya dari transaksi lama (fee_amount); transaksi baru
      *   selalu 0. Tetap ditambahkan ke laba supaya angka lama tidak hilang.
@@ -82,6 +83,13 @@ class LabaRugiService
                 // dihapus supaya angka lama tetap punya tempat.
                 $perUnit[$trx->unit_id]['fee_koperasi'] += (float) ($item->fee_amount ?? 0);
             }
+
+            // DISKON TRANSAKSI mengurangi Penjualan: pelanggan memang membayar
+            // lebih sedikit. Sebelumnya diabaikan, sehingga Penjualan & Laba
+            // tercatat lebih besar dari uang yang diterima. (Diskon per item
+            // sudah terpotong di subtotal item.) Ongkir TIDAK dihitung sebagai
+            // Penjualan — itu bukan hasil jual barang.
+            $perUnit[$trx->unit_id]['penjualan'] -= (float) $trx->diskon;
         }
 
         // Pengeluaran per unit — bebanUsaha(), BUKAN aktif(): pembelian stok
@@ -186,6 +194,11 @@ class LabaRugiService
      * sedikit bisa menyumbang omzet terbesar. Agregat, aturan transaksi,
      * periode, dan filter unit identik.
      *
+     * Omzet per produk = SUM(subtotal item), SEBELUM diskon transaksi —
+     * diskon transaksi tidak bisa dibebankan ke satu produk tertentu. Karena
+     * itu jumlah omzet peringkat bisa sedikit di atas KPI Total Penjualan
+     * bila ada transaksi berdiskon.
+     *
      * @return array<int, array{nama: string, qty: int, omzet: float, hpp: float, profit: float}>
      */
     public function penjualanTerbesar(string $tahun = 'default', string $bulan = 'default', ?string $unitId = null, int $limit = 5): array
@@ -195,12 +208,12 @@ class LabaRugiService
 
     /**
      * TREN PENJUALAN — Penjualan per bulan (1..12) dalam satu tahun, dengan
-     * definisi yang SAMA dengan KPI Total Penjualan: SUM(subtotal item),
-     * tanpa Draft & Dibatalkan, unit yang masih ada. Jumlah ke-12 bulan =
-     * hitung($tahun, 'semua')['total']['penjualan'].
+     * definisi yang SAMA dengan KPI Total Penjualan: SUM(subtotal item) -
+     * diskon transaksi, tanpa Draft & Dibatalkan, unit yang masih ada.
+     * Jumlah ke-12 bulan = hitung($tahun, 'semua')['total']['penjualan'].
      *
-     * Dua belas SUM per bulan (whereMonth) — portabel antar driver, tidak
-     * memuat baris item ke memori.
+     * SUM per bulan (whereMonth) — portabel antar driver, tidak memuat baris
+     * item ke memori.
      *
      * @return array<int, float>
      */
@@ -214,7 +227,15 @@ class LabaRugiService
                 ->whereIn('st.unit_id', BusinessUnit::select('id'));
             $this->applyPeriode($query, (string) $tahun, (string) $bulan, 'st.tanggal');
             $this->applyUnit($query, $unitId, 'st.unit_id');
-            $hasil[$bulan] = (float) $query->sum('sales_transaction_items.subtotal');
+
+            // Diskon transaksi dijumlah per transaksi (bukan lewat join item,
+            // yang akan menggandakannya untuk transaksi berisi banyak item).
+            $diskon = SalesTransaction::whereNotIn('status_transaksi', ['Draft', 'Dibatalkan'])
+                ->whereIn('unit_id', BusinessUnit::select('id'));
+            $this->applyPeriode($diskon, (string) $tahun, (string) $bulan, 'tanggal');
+            $this->applyUnit($diskon, $unitId, 'unit_id');
+
+            $hasil[$bulan] = (float) $query->sum('sales_transaction_items.subtotal') - (float) $diskon->sum('diskon');
         }
 
         return $hasil;

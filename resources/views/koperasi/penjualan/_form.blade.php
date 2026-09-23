@@ -754,10 +754,12 @@ function recomputeSummary() {
 
     const grandTotal = Math.max(0, subtotal - diskonTrx) + ongkirKeTotal;
 
-    // Estimasi Profit = Total Penjualan - Total Modal/HPP. Titik.
+    // Estimasi Profit = (Total item - Diskon transaksi) - Total Modal/HPP —
+    // sama dengan SalesTransaction::estimasiProfit() & LabaRugiService.
+    // Diskon dibatasi subtotal seperti di controller. Ongkir bukan penjualan.
     // Hak Mitra tidak ikut dikurangkan: kalau modalnya memang sudah mewakili
     // biaya yang sama, satu biaya akan terhitung dua kali.
-    const estimasiProfit = subtotal - totalHpp;
+    const estimasiProfit = subtotal - Math.min(diskonTrx, subtotal) - totalHpp;
 
     const statusBayar = document.getElementById('inputStatusBayar')?.value;
     let dibayar = 0;
