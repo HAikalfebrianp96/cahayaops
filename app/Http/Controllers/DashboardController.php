@@ -940,8 +940,11 @@ class DashboardController extends Controller
         $stats['laba_kotor_tahun_ini'] = $lr['total']['laba_kotor'];
         $stats['pengeluaran_tahun_ini'] = $lr['total']['pengeluaran_total'];
         $stats['piutang_aktif'] = $lr['total']['piutang'];
+        $stats['transaksi_belum_lunas'] = $lr['total']['transaksi_belum_lunas'];
         // Bukan KPI: uang keluar yang biayanya baru masuk laba lewat HPP.
         $stats['pembelian_stok'] = $lr['total']['pembelian_stok'];
+        // Seluruh uang keluar periode ini = total halaman Pengeluaran (Aktif).
+        $stats['uang_keluar'] = $lr['total']['pengeluaran_total'] + $lr['total']['pembelian_stok'];
         $stats['laba_bersih_tahun_ini'] = $lr['total']['laba_bersih'];
         $stats['unit_terbaik'] = $lr['unit_terbaik'];
         $stats['ada_transaksi_tahun_ini'] = $lr['ada_transaksi'];
@@ -953,12 +956,9 @@ class DashboardController extends Controller
         $filters = ['tahun' => $tahun, 'bulan' => $bulan, 'unit_id' => $unitId];
         $units = BusinessUnit::orderBy('nama')->get();
 
-        // Status Pembayaran — hitungan sederhana dari kolom yang sudah ada.
-        $statusPembayaran = [
-            'Lunas' => SalesTransaction::where('status_pembayaran', 'Lunas')->count(),
-            'DP' => SalesTransaction::where('status_pembayaran', 'DP')->count(),
-            'Belum Dibayar' => SalesTransaction::where('status_pembayaran', 'Belum Dibayar')->count(),
-        ];
+        // Kotak "Status Pembayaran" (hitungan sepanjang waktu, termasuk
+        // transaksi Draft/Dibatalkan) diganti ringkasan Piutang dari hasil
+        // hitung() yang sama dengan KPI — periode & unit ikut filter.
 
         $penjualanTerbaru = SalesTransaction::with(['businessUnit', 'customer'])
             ->orderByDesc('tanggal')
@@ -976,7 +976,7 @@ class DashboardController extends Controller
         // Posisi uang hari ini — dari KasBankService, sama dengan halaman Kas & Bank.
         $kasBank = app(\App\Services\KasBankService::class)->ringkasan();
 
-        return compact('stats', 'perUnit', 'produkTerlaris', 'statusPembayaran', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units', 'kasBank');
+        return compact('stats', 'perUnit', 'produkTerlaris', 'penjualanTerbaru', 'pengeluaranTerbaru', 'filters', 'units', 'kasBank');
     }
 
     /**

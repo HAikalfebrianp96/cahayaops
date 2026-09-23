@@ -202,7 +202,7 @@ class DashboardKoperasiKpiTest extends TestCase
             $this->assertEquals($lr[$kunciKeuangan], $stats[$kunciDashboard], $kunciDashboard);
         }
 
-        $dashboard->assertSeeInOrder(['Arus Kas Pembelian Stok', 'Rp340.000'])
+        $dashboard->assertSeeInOrder(['Pembelian/Re-Stok Produk', 'Rp340.000'])
             ->assertSee('Pembelian stok tidak mengurangi laba saat pembelian. Biayanya menjadi HPP ketika produk terjual.');
     }
 

@@ -12,6 +12,19 @@
             ? ', Operasional Koperasi'
             : ($filters['unit_id'] ? ', ' . ($units->firstWhere('id', (int) $filters['unit_id'])->nama ?? 'unit tidak dikenal') : '');
         $labelPeriode = $labelTahun . ', ' . $labelBulan . $labelUnit;
+
+        // Tautan ke Pengeluaran & Penjualan membawa periode/unit yang SAMA,
+        // supaya angka yang dibandingkan admin memang dari filter yang sama.
+        // (Default bulan Pengeluaran = bulan ini, jadi "semua bulan" dikirim eksplisit.)
+        $tahunNyata = $filters['tahun'] === 'default' ? (string) now()->year : $filters['tahun'];
+        $bulanNyata = in_array($filters['bulan'], ['default', 'semua'], true) ? null : $filters['bulan'];
+        $filterPengeluaran = array_filter([
+            'tahun' => $tahunNyata, 'bulan' => $bulanNyata ?? 'semua', 'unit_id' => $filters['unit_id'],
+        ]);
+        $filterPenjualan = array_filter([
+            'tahun' => $tahunNyata === 'semua' ? null : $tahunNyata, 'bulan' => $bulanNyata,
+            'unit_id' => $filters['unit_id'] === 'operasional' ? null : $filters['unit_id'], 'keadaan' => 'aktif',
+        ]);
     @endphp
     <div class="flex items-baseline justify-between flex-wrap gap-x-3 gap-y-1">
         <h3 class="text-[15px] font-semibold text-text-main">Ringkasan Laba-Rugi</h3>
@@ -74,7 +87,7 @@
         {{-- LABA BERSIH — paling menonjol: hasil akhirnya --}}
         <div class="bg-cahaya-primary rounded-2xl shadow-sm p-5">
             <p class="text-xs font-medium text-white/70 mb-2">Laba Bersih</p>
-            @if (! $stats['ada_transaksi_tahun_ini'])
+            @if (! $stats['ada_transaksi_tahun_ini'] && $stats['pengeluaran_tahun_ini'] == 0)
                 <p class="text-sm text-white/60 italic">Belum ada transaksi</p>
             @else
                 <p class="text-2xl font-bold {{ $stats['laba_bersih_tahun_ini'] >= 0 ? 'text-white' : 'text-red-300' }}">
@@ -82,13 +95,6 @@
                 </p>
             @endif
         </div>
-    </div>
-
-    {{-- PEMBELIAN STOK — bukan KPI. Uangnya keluar, tapi biayanya baru masuk
-         laba lewat HPP Terjual; tetap terlihat supaya tidak dikira hilang. --}}
-    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-xl border border-dashed border-border-soft bg-white px-4 py-3">
-        <p class="text-sm text-text-secondary">Arus Kas Pembelian Stok <span class="font-semibold text-text-main ml-1">{{ rupiah($stats['pembelian_stok']) }}</span></p>
-        <p class="text-[11px] text-text-secondary">Pembelian stok tidak mengurangi laba saat pembelian. Biayanya menjadi HPP ketika produk terjual.</p>
     </div>
 
     {{-- PRODUK TERLARIS — peringkat menurut JUMLAH UNIT TERJUAL, filter
@@ -129,10 +135,6 @@
         @endif
     </div>
 
-    @isset($kasBank)
-        @include('koperasi.kas-bank._kartu-dashboard')
-    @endisset
-
     {{-- 7. PERFORMA UNIT USAHA --}}
     <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
         <div class="flex items-center justify-between mb-4">
@@ -153,16 +155,18 @@
                     <thead>
                         <tr class="text-left text-text-secondary border-b border-border-soft">
                             <th class="py-2 font-medium">Unit</th>
-                            <th class="py-2 font-medium">Penjualan</th>
-                            <th class="py-2 font-medium">Laba Bersih</th>
+                            <th class="py-2 font-medium text-right">Penjualan</th>
+                            <th class="py-2 font-medium text-right">HPP</th>
+                            <th class="py-2 font-medium text-right">Laba Bersih</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($perUnit as $u)
                             <tr class="border-b border-border-soft last:border-0">
                                 <td class="py-2.5 font-medium text-text-main">{{ $u['nama'] }}</td>
-                                <td class="py-2.5 text-text-secondary">{{ rupiah($u['penjualan']) }}</td>
-                                <td class="py-2.5 font-semibold {{ $u['laba_bersih'] >= 0 ? 'text-status-success' : 'text-status-danger' }}">{{ rupiah($u['laba_bersih']) }}</td>
+                                <td class="py-2.5 text-right text-text-secondary whitespace-nowrap">{{ rupiah($u['penjualan']) }}</td>
+                                <td class="py-2.5 text-right text-text-secondary whitespace-nowrap">{{ rupiah($u['hpp']) }}</td>
+                                <td class="py-2.5 text-right font-semibold whitespace-nowrap {{ $u['laba_bersih'] >= 0 ? 'text-status-success' : 'text-status-danger' }}">{{ rupiah($u['laba_bersih']) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -171,10 +175,59 @@
         @endif
     </div>
 
-    {{-- BARIS: PENJUALAN TERBARU + STATUS PEMBAYARAN --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {{-- 8. PENJUALAN TERBARU --}}
-        <div class="lg:col-span-2 bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+    {{-- PENGELUARAN & PIUTANG — periode & unit sama dengan KPI (satu hasil
+         LabaRugiService). Pembelian stok bukan beban: uangnya keluar, tapi
+         biayanya baru masuk laba lewat HPP Terjual. --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-semibold text-text-main">Pengeluaran</h3>
+                <a href="{{ route('koperasi.pengeluaran.index', $filterPengeluaran) }}" class="text-xs text-status-info font-medium hover:underline">Lihat rincian</a>
+            </div>
+            <div class="space-y-2.5 text-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-text-secondary">Pengeluaran Operasional <span class="text-[11px]">(mengurangi laba)</span></span>
+                    <span class="font-semibold text-status-danger whitespace-nowrap">{{ rupiah($stats['pengeluaran_tahun_ini']) }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-text-secondary">Pembelian/Re-Stok Produk <span class="text-[11px]">(tidak mengurangi laba)</span></span>
+                    <span class="font-semibold text-text-main whitespace-nowrap">{{ rupiah($stats['pembelian_stok']) }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3 border-t border-border-soft pt-2.5">
+                    <span class="text-text-secondary">Total uang keluar</span>
+                    <span class="font-bold text-text-main whitespace-nowrap">{{ rupiah($stats['uang_keluar']) }}</span>
+                </div>
+            </div>
+            <p class="text-[11px] text-text-secondary mt-3">Pembelian stok tidak mengurangi laba saat pembelian. Biayanya menjadi HPP ketika produk terjual.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-semibold text-text-main">Piutang</h3>
+                <a href="{{ route('koperasi.penjualan.index', $filterPenjualan) }}" class="text-xs text-status-info font-medium hover:underline">Lihat penjualan</a>
+            </div>
+            <div class="space-y-2.5 text-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-text-secondary">Transaksi belum lunas</span>
+                    <span class="font-semibold text-text-main">{{ $stats['transaksi_belum_lunas'] }}</span>
+                </div>
+                <div class="flex items-center justify-between gap-3 border-t border-border-soft pt-2.5">
+                    <span class="text-text-secondary">Total piutang aktif</span>
+                    <span class="font-bold text-cahaya-accent whitespace-nowrap">{{ rupiah($stats['piutang_aktif']) }}</span>
+                </div>
+            </div>
+            <p class="text-[11px] text-text-secondary mt-3">Sisa tagihan penjualan periode ini yang belum dibayar. Transaksi Draft dan Dibatalkan tidak dihitung.</p>
+        </div>
+    </div>
+
+    {{-- UANG TERSEDIA — posisi kas hari ini, BUKAN laba (KasBankService). --}}
+    @isset($kasBank)
+        @include('koperasi.kas-bank._kartu-dashboard')
+    @endisset
+
+    {{-- 8. PENJUALAN TERBARU --}}
+    <div>
+        <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-[15px] font-semibold text-text-main">Penjualan Terbaru</h3>
                 <a href="{{ route('koperasi.penjualan.index') }}" class="text-xs text-status-info font-medium hover:underline">Lihat Semua Penjualan</a>
@@ -214,28 +267,6 @@
             @endif
         </div>
 
-        {{-- 9. STATUS PEMBAYARAN. Kotak "Titip Jual" (Fee Koperasi & Hak
-             Mitra) dilepas: hak mitra dihitung koperasi di luar sistem, dan
-             angkanya tetap tersedia di Keuangan & Laporan. --}}
-        <div class="space-y-5">
-            <div class="bg-white rounded-2xl border border-border-soft shadow-sm p-6">
-                <h3 class="text-[15px] font-semibold text-text-main mb-4">Status Pembayaran</h3>
-                <div class="space-y-2.5 text-sm">
-                    <div class="flex items-center justify-between">
-                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-status-success"></span>Lunas</span>
-                        <span class="font-semibold text-text-main">{{ $statusPembayaran['Lunas'] }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-cahaya-accent"></span>DP</span>
-                        <span class="font-semibold text-text-main">{{ $statusPembayaran['DP'] }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-status-danger"></span>Belum Dibayar</span>
-                        <span class="font-semibold text-text-main">{{ $statusPembayaran['Belum Dibayar'] }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     {{-- 10. PENGELUARAN TERBARU --}}

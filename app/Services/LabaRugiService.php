@@ -28,6 +28,13 @@ class LabaRugiService
      *   dilaporkan terpisah di total['pembelian_stok'].
      * - Pengeluaran Operasional Koperasi (business_unit_id null) TIDAK dibebankan
      *   otomatis ke unit manapun — cuma dikurangi di level total koperasi.
+     *
+     * Filter unit berarti hal yang SAMA dengan filter unit halaman Pengeluaran:
+     * - null / ''      : semua unit + pengeluaran operasional koperasi.
+     * - id unit        : hanya penjualan & pengeluaran unit itu; pengeluaran
+     *                    operasional koperasi TIDAK ikut dikurangkan.
+     * - 'operasional'  : hanya pengeluaran tanpa unit; tanpa penjualan
+     *                    (penjualan selalu milik suatu unit).
      */
     public function hitung(string $tahun = 'default', string $bulan = 'default', ?string $unitId = null): array
     {
@@ -35,9 +42,7 @@ class LabaRugiService
             ->with('items');
         $this->applyPeriode($transaksiQuery, $tahun, $bulan, 'tanggal');
 
-        if ($unitId && $unitId !== 'operasional') {
-            $transaksiQuery->where('unit_id', $unitId);
-        }
+        $this->applyUnit($transaksiQuery, $unitId, 'unit_id');
 
         $transaksi = $transaksiQuery->get();
 
@@ -56,7 +61,11 @@ class LabaRugiService
             // Piutang dari transaksi yang SAMA dengan Penjualan & HPP di bawah
             // — sisa tagihan (total - dibayar) yang belum lunas. Hanya
             // informasi: tidak ikut rumus laba.
-            $perUnit[$trx->unit_id]['piutang'] += $trx->sisaPembayaran();
+            $sisa = $trx->sisaPembayaran();
+            $perUnit[$trx->unit_id]['piutang'] += $sisa;
+            if ($sisa > 0) {
+                $perUnit[$trx->unit_id]['transaksi_belum_lunas']++;
+            }
 
             foreach ($trx->items as $item) {
                 // SETIAP item masuk Penjualan dan HPP — tidak ada lagi item
@@ -79,16 +88,13 @@ class LabaRugiService
         // tidak dikurangkan di sini karena biayanya sudah masuk lewat HPP.
         $pengeluaranQuery = Pengeluaran::bebanUsaha();
         $this->applyPeriode($pengeluaranQuery, $tahun, $bulan, 'tanggal');
+        $this->applyUnit($pengeluaranQuery, $unitId, 'business_unit_id');
         $pengeluaranPeriode = (clone $pengeluaranQuery)->get();
 
         // Pembelian stok periode ini — hanya informasi, tidak masuk rumus.
         $pembelianStokQuery = Pengeluaran::pembelianStok();
         $this->applyPeriode($pembelianStokQuery, $tahun, $bulan, 'tanggal');
-        if ($unitId === 'operasional') {
-            $pembelianStokQuery->whereNull('business_unit_id');
-        } elseif ($unitId) {
-            $pembelianStokQuery->where('business_unit_id', $unitId);
-        }
+        $this->applyUnit($pembelianStokQuery, $unitId, 'business_unit_id');
         $pembelianStok = (float) $pembelianStokQuery->sum('nominal');
 
         $pengeluaranOperasional = 0.0;
@@ -110,7 +116,10 @@ class LabaRugiService
         unset($u);
 
         // Kalau filter unit dipilih spesifik (bukan "semua"), sisakan cuma unit itu di tabel performa
-        if ($unitId && $unitId !== 'operasional' && isset($perUnit[$unitId])) {
+        // ('operasional' bukan unit usaha — tabel per unit kosong).
+        if ($unitId === 'operasional') {
+            $perUnit = [];
+        } elseif ($unitId && isset($perUnit[$unitId])) {
             $perUnit = [$unitId => $perUnit[$unitId]];
         }
 
@@ -118,9 +127,10 @@ class LabaRugiService
         $total = [
             'penjualan' => 0, 'hpp' => 0, 'laba_kotor' => 0, 'fee_koperasi' => 0,
             'hak_mitra' => 0, 'pengeluaran' => 0, 'kontribusi_usaha' => 0, 'piutang' => 0,
+            'transaksi_belum_lunas' => 0,
         ];
         foreach ($perUnit as $u) {
-            foreach (['penjualan', 'hpp', 'laba_kotor', 'fee_koperasi', 'hak_mitra', 'pengeluaran', 'kontribusi_usaha', 'piutang'] as $key) {
+            foreach (['penjualan', 'hpp', 'laba_kotor', 'fee_koperasi', 'hak_mitra', 'pengeluaran', 'kontribusi_usaha', 'piutang', 'transaksi_belum_lunas'] as $key) {
                 $total[$key] += $u[$key];
             }
         }
@@ -151,8 +161,8 @@ class LabaRugiService
      * Hanya membaca; memakai aturan yang SAMA dengan hitung() supaya
      * angkanya sejalan dengan KPI Total Penjualan & HPP Terjual:
      * - Transaksi Draft & Dibatalkan tidak dihitung.
-     * - Periode (applyPeriode) dan filter unit identik; 'operasional' tidak
-     *   menyaring transaksi, persis seperti hitung().
+     * - Periode (applyPeriode) dan filter unit (applyUnit) identik;
+     *   'operasional' tidak punya penjualan, persis seperti hitung().
      * - Transaksi milik unit yang sudah dihapus (soft delete) dilewati,
      *   sama seperti hitung() yang hanya mengenal unit yang masih ada.
      * - Omzet = SUM(subtotal), HPP = SUM(qty x harga_modal_snapshot).
@@ -177,9 +187,7 @@ class LabaRugiService
             ->selectRaw('SUM(sales_transaction_items.qty * sales_transaction_items.harga_modal_snapshot) as hpp');
         $this->applyPeriode($query, $tahun, $bulan, 'st.tanggal');
 
-        if ($unitId && $unitId !== 'operasional') {
-            $query->where('st.unit_id', $unitId);
-        }
+        $this->applyUnit($query, $unitId, 'st.unit_id');
 
         // Satu produk bisa muncul dengan beberapa nama_snapshot (produk
         // pernah diganti nama) — gabungkan per produk di sini.
@@ -218,7 +226,22 @@ class LabaRugiService
             'nama' => $nama,
             'penjualan' => 0.0, 'hpp' => 0.0, 'laba_kotor' => 0.0,
             'fee_koperasi' => 0.0, 'hak_mitra' => 0.0, 'pengeluaran' => 0.0, 'piutang' => 0.0,
+            'transaksi_belum_lunas' => 0,
         ];
+    }
+
+    /**
+     * Filter unit — arti yang sama untuk penjualan dan pengeluaran, dan sama
+     * dengan filter unit halaman Pengeluaran. Kolom unit penjualan tidak
+     * pernah null, jadi 'operasional' otomatis tidak memuat penjualan.
+     */
+    private function applyUnit($query, ?string $unitId, string $kolom): void
+    {
+        if ($unitId === 'operasional') {
+            $query->whereNull($kolom);
+        } elseif ($unitId) {
+            $query->where($kolom, $unitId);
+        }
     }
 
     private function applyPeriode($query, string $tahun, string $bulan, string $kolom): void
