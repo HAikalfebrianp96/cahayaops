@@ -168,7 +168,8 @@ class LabaRugiService
      * - Omzet = SUM(subtotal), HPP = SUM(qty x harga_modal_snapshot).
      *
      * Satu query agregat (GROUP BY), bukan query per produk. Item dikelompokkan
-     * per product_service_id; item tanpa produk master dikelompokkan per
+     * per product_service_id; item tanpa produk master digabung ke produk
+     * master bernama sama (bila namanya unik), selebihnya dikelompokkan per
      * nama_snapshot. Produk dengan total qty 0 tidak ikut peringkat.
      *
      * @return array<int, array{nama: string, qty: int, omzet: float, hpp: float, profit: float}>
@@ -235,11 +236,33 @@ class LabaRugiService
 
         $this->applyUnit($query, $unitId, 'st.unit_id');
 
+        $baris = $query->toBase()->get();
+
+        // Item MANUAL (tanpa produk master) yang namanya sama dengan satu
+        // produk master digabung ke produk itu — HANYA di peringkat ini, data
+        // transaksinya tidak diubah. Contoh: Kerupuk Tuiri, dua penjualan
+        // awalnya diinput manual sebelum produknya didaftarkan. Nama
+        // dibandingkan tanpa beda huruf besar/kecil & spasi tepi. Nama yang
+        // dipakai lebih dari satu produk master (mis. di unit berbeda) TIDAK
+        // digabung: tidak bisa dipastikan milik yang mana.
+        $normal = fn (?string $nama) => mb_strtolower(trim((string) $nama));
+        $masterPerNama = [];
+        if ($baris->contains(fn ($row) => $row->produk_id === null)) {
+            $masterPerNama = ProductService::withTrashed()->get(['id', 'nama'])
+                ->groupBy(fn ($p) => $normal($p->nama))
+                ->filter(fn ($grup) => $grup->count() === 1)
+                ->map(fn ($grup) => $grup->first()->id)
+                ->all();
+        }
+
         // Satu produk bisa muncul dengan beberapa nama_snapshot (produk
         // pernah diganti nama) — gabungkan per produk di sini.
         $gabung = [];
-        foreach ($query->toBase()->get() as $row) {
-            $kunci = $row->produk_id !== null ? 'p' . $row->produk_id : 'n' . $row->nama;
+        foreach ($baris as $row) {
+            if ($row->produk_id === null && isset($masterPerNama[$normal($row->nama)])) {
+                $row->produk_id = $masterPerNama[$normal($row->nama)];
+            }
+            $kunci = $row->produk_id !== null ? 'p' . $row->produk_id : 'n' . $normal($row->nama);
             $gabung[$kunci] ??= ['produk_id' => $row->produk_id, 'nama' => $row->nama, 'qty' => 0, 'omzet' => 0.0, 'hpp' => 0.0];
             $gabung[$kunci]['qty'] += (int) $row->qty;
             $gabung[$kunci]['omzet'] += (float) $row->omzet;
