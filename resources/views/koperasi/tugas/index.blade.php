@@ -54,12 +54,12 @@
             <span class="text-text-secondary font-normal">({{ $ringkas['segera'] }})</span>
         </h3>
         <p class="text-xs text-text-secondary mt-0.5 mb-4">
-            Pembeli belum menerima tagihan, atau uangnya belum masuk.
+            Penjualan yang belum lunas — buat tagihannya, atau catat pembayarannya. Penjualan yang sudah lunas tidak perlu invoice untuk dianggap beres.
         </p>
 
         @if ($ringkas['segera'] === 0)
             <p class="text-sm text-text-secondary italic">
-                Tidak ada yang mendesak. Seluruh transaksi aktif sudah bertagihan dan lunas.
+                Tidak ada yang mendesak. Seluruh penjualan aktif sudah lunas.
             </p>
         @else
             <div class="space-y-3">
@@ -85,7 +85,7 @@
                             </span>
                         </div>
                         <p class="mt-2 text-xs text-text-secondary">
-                            Alasan: Transaksi ini belum punya invoice, jadi pembeli belum menerima tagihan.
+                            Alasan: Belum lunas dan belum punya invoice, jadi pembeli belum menerima tagihan.
                         </p>
                         <div class="mt-4 flex flex-wrap items-center gap-2">
                             <form method="POST" action="{{ route('koperasi.invoice.store', $t) }}">

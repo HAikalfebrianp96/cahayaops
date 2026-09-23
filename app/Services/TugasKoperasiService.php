@@ -24,8 +24,8 @@ use Illuminate\Support\Collection;
  *
  * Yang dipakai hanya keadaan yang bisa dibuktikan langsung dari data:
  *
- *   transaksi aktif TANPA baris invoice        -> pembeli tidak punya tagihan
- *   transaksi aktif yang statusnya belum lunas -> uangnya memang belum masuk
+ *   transaksi belum lunas TANPA invoice        -> pembeli belum menerima tagihan
+ *   transaksi belum lunas yang SUDAH berinvoice -> uangnya memang belum masuk
  *   anggota aktif TANPA PIN                    -> tidak bisa Cek Simpanan
  *   anggota aktif TANPA satu pun simpanan      -> saldonya nol
  *   pengeluaran aktif TANPA berkas bukti       -> tidak bisa diaudit
@@ -65,7 +65,14 @@ class TugasKoperasiService
     public const BATAS_TAMPIL = 50;
 
     /**
-     * Transaksi aktif yang belum punya invoice.
+     * Transaksi BELUM LUNAS yang belum punya invoice — pembelinya harus
+     * membayar, tapi belum menerima tagihan.
+     *
+     * Penjualan yang SUDAH LUNAS tanpa invoice bukan tugas: pembeli sudah
+     * membayar dan membawa barangnya (mis. jual tunai, ambil di tempat), tidak
+     * ada yang menunggu. Invoice untuknya tetap bisa dibuat kapan saja dari
+     * halaman detail. Sebelumnya penjualan lunas ikut dihitung, sehingga
+     * "Perlu Segera" berisi ratusan penjualan tunai yang sudah selesai.
      *
      * Draft & Dibatalkan dikecualikan lewat penyaring yang SAMA dengan yang
      * dipakai laporan dan laba rugi, supaya daftar tugas tidak pernah
@@ -73,7 +80,7 @@ class TugasKoperasiService
      */
     public function transaksiTanpaInvoice(): Collection
     {
-        return $this->transaksiAktif()
+        return $this->belumLunas()
             ->whereDoesntHave('invoice')
             ->with(['businessUnitTermasukArsip', 'customerTermasukArsip'])
             ->orderBy('tanggal')
@@ -81,11 +88,16 @@ class TugasKoperasiService
             ->get();
     }
 
-    /** Transaksi aktif yang pembayarannya belum lunas. */
+    /**
+     * Transaksi belum lunas yang SUDAH berinvoice — tinggal pembayarannya.
+     *
+     * Yang belum berinvoice ada di transaksiTanpaInvoice(); kedua kelompok
+     * tidak beririsan, jadi satu transaksi tidak pernah terhitung dua kali.
+     */
     public function transaksiBelumLunas(): Collection
     {
-        return $this->transaksiAktif()
-            ->whereIn('status_pembayaran', ['Belum Dibayar', 'DP'])
+        return $this->belumLunas()
+            ->whereHas('invoice')
             ->with(['businessUnitTermasukArsip', 'customerTermasukArsip'])
             ->orderBy('tanggal')
             ->limit(self::BATAS_TAMPIL)
@@ -184,8 +196,10 @@ class TugasKoperasiService
      */
     public function ringkas(): array
     {
-        $segera = $this->transaksiAktif()->whereDoesntHave('invoice')->count()
-            + $this->transaksiAktif()->whereIn('status_pembayaran', ['Belum Dibayar', 'DP'])->count();
+        // = jumlah transaksi belum lunas: dua kelompok di bawah tidak
+        // beririsan (belum berinvoice / sudah berinvoice).
+        $segera = $this->belumLunas()->whereDoesntHave('invoice')->count()
+            + $this->belumLunas()->whereHas('invoice')->count();
 
         $perhatian = KoperasiMember::where('status', 'Aktif')->whereNull('pin_hash')->count()
             + KoperasiMember::where('status', 'Aktif')->whereDoesntHave('savings')->count()
@@ -198,11 +212,10 @@ class TugasKoperasiService
             'calon_anggota' => Participant::whereDoesntHave('koperasiMember')
                 ->whereIn('status', Participant::STATUS_BERJALAN)
                 ->count(),
-            // Transaksi aktif yang sudah beres seluruhnya: punya invoice DAN
-            // sudah lunas. Dihitung supaya "tidak ada yang tampil" terbaca
-            // sebagai selesai, bukan sebagai terlewat.
+            // Transaksi aktif yang sudah beres: LUNAS (invoice opsional).
+            // Dihitung supaya "tidak ada yang tampil" terbaca sebagai selesai,
+            // bukan sebagai terlewat.
             'beres' => $this->transaksiAktif()
-                ->whereHas('invoice')
                 ->where('status_pembayaran', 'Lunas')
                 ->count(),
         ];
@@ -222,8 +235,8 @@ class TugasKoperasiService
         $tanpaBukti = $this->pengeluaranTanpaBukti();
         $calon = $this->calonAnggota();
 
-        // SEGERA = ada pihak lain yang sedang menunggu. Pembeli tanpa
-        // tagihan, dan uang penjualan yang belum masuk.
+        // SEGERA = ada pihak lain yang sedang menunggu: uang penjualan yang
+        // belum masuk — dipisah menurut sudah/belum ada tagihannya.
         $segera = [
             'transaksi_tanpa_invoice' => $tanpaInvoice,
             'transaksi_belum_lunas' => $belumLunas,
@@ -262,5 +275,15 @@ class TugasKoperasiService
     private function transaksiAktif()
     {
         return SalesTransaction::whereNotIn('status_transaksi', ['Draft', 'Dibatalkan']);
+    }
+
+    /**
+     * Transaksi aktif yang belum lunas. status_pembayaran selalu diturunkan
+     * dari riwayat pembayaran (PembayaranPenjualanService::hitungUlang), jadi
+     * sama dengan "sisa tagihan > 0" yang dipakai Piutang Aktif.
+     */
+    private function belumLunas()
+    {
+        return $this->transaksiAktif()->whereIn('status_pembayaran', ['Belum Dibayar', 'DP']);
     }
 }

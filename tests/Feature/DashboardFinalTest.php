@@ -172,6 +172,57 @@ class DashboardFinalTest extends TestCase
         $respon->assertDontSee('HPP')->assertDontSee('Warung Bu Sri')->assertDontSee('<table', false);
     }
 
+    /**
+     * Periode sama (Tahun berjalan, semua bulan, semua unit) -> angka sama
+     * di keempat dashboard. Ada re-stok, piutang, dan pengeluaran supaya
+     * setiap angka benar-benar teruji, bukan nol semua.
+     */
+    public function test_angka_sama_di_semua_dashboard_peran(): void
+    {
+        $this->isiPenjualan();
+        $this->jual($this->produk('Gula Aren', 15_000, 20_000), 3, status: 'Belum Dibayar'); // piutang 60.000
+        \App\Models\Pengeluaran::create(['tanggal' => '2026-07-02', 'business_unit_id' => $this->unit->id,
+            'kategori' => 'Listrik', 'nominal' => 25_000, 'status' => 'Aktif']);
+        \App\Models\Pengeluaran::create(['tanggal' => '2026-07-03', 'business_unit_id' => $this->unit->id,
+            'kategori' => 'Re-Stok Produk', 'nominal' => 400_000, 'status' => 'Aktif']);
+        AkunKas::query()->update(['tanggal_saldo_awal' => '2026-01-01']);
+
+        $lr = app(LabaRugiService::class)->hitung('default', 'default')['total'];
+        $this->assertEquals(1_360_000, $lr['penjualan']);
+        $this->assertEquals(1_045_000, $lr['hpp']);            // 400.000 + 600.000 + 45.000
+        $this->assertEquals(315_000, $lr['laba_kotor']);
+        $this->assertEquals(25_000, $lr['pengeluaran_total']); // re-stok TIDAK ikut
+        $this->assertEquals(290_000, $lr['laba_bersih']);
+        $this->assertEquals(60_000, $lr['piutang']);
+        $this->assertEquals(400_000, $lr['pembelian_stok']);
+
+        $admin = $this->actingAs($this->admin)->get(route('dashboard', ['modul' => 'koperasi']))->viewData('stats');
+        $tim = $this->actingAs($this->user('tim_koperasi', 'tim2@final.test'))->get(route('dashboard'));
+        $semua = $this->actingAs($this->admin)->get(route('dashboard'))->viewData('ringkasanSemua')['keuangan'];
+        $pimpinan = $this->actingAs($this->user('pimpinan', 'pim2@final.test'))->get(route('dashboard'));
+
+        foreach (['penjualan_tahun_ini' => 'penjualan', 'hpp_tahun_ini' => 'hpp', 'laba_kotor_tahun_ini' => 'laba_kotor',
+            'pengeluaran_tahun_ini' => 'pengeluaran_total', 'laba_bersih_tahun_ini' => 'laba_bersih', 'piutang_aktif' => 'piutang'] as $kunci => $asli) {
+            $this->assertEquals($lr[$asli], $admin[$kunci], "Admin $kunci");
+            $this->assertEquals($lr[$asli], $tim->viewData('usaha')['stats'][$kunci], "Tim $kunci");
+            $this->assertEquals($lr[$asli], $semua[$asli], "Admin semua $asli");
+        }
+        $this->assertEquals($lr['penjualan'], $pimpinan->viewData('koperasiRingkasan')['total_penjualan']);
+        $this->assertEquals($lr['laba_bersih'], $pimpinan->viewData('koperasiRingkasan')['laba_bersih']);
+
+        // Produk Terlaris sama di semua peran.
+        $terlaris = app(LabaRugiService::class)->produkTerlaris();
+        $this->assertEquals($terlaris, $tim->viewData('usaha')['produkTerlaris']);
+        $this->assertEquals($terlaris, $pimpinan->viewData('produkTerlaris'));
+
+        // Posisi uang: Admin & Tim sama; re-stok MENGURANGI uang (bukan laba),
+        // piutang BELUM menambah uang.
+        $kasAdmin = $this->actingAs($this->admin)->get(route('dashboard', ['modul' => 'koperasi']))->viewData('kasBank');
+        $this->assertEquals($kasAdmin['uang_tersedia'], $tim->viewData('kasBank')['uang_tersedia']);
+        $this->assertEquals(1_300_000 - 25_000 - 400_000, $kasAdmin['uang_tersedia']);
+        $this->assertNotEquals($lr['laba_bersih'], $kasAdmin['uang_tersedia']);
+    }
+
     public function test_uang_tersedia_belum_tersedia_saat_saldo_awal_belum_lengkap(): void
     {
         // Akun bawaan dari migration + satu akun baru — semuanya tanpa saldo awal.

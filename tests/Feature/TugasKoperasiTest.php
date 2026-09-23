@@ -199,16 +199,79 @@ class TugasKoperasiTest extends TestCase
     // C. MENAGIH PEKERJAAN YANG MEMANG ADA
     // ==================================================================
 
-    public function test_transaksi_tanpa_invoice_muncul_sebagai_perlu_segera(): void
+    public function test_transaksi_belum_lunas_tanpa_invoice_muncul_sebagai_perlu_segera(): void
     {
-        $t = $this->jual('Lunas');
+        $t = $this->jual('Belum Dibayar');
 
-        $this->assertSame(1, $this->tugas()['segera']['transaksi_tanpa_invoice']->count());
+        $tugas = $this->tugas();
+        $this->assertSame(1, $tugas['segera']['transaksi_tanpa_invoice']->count());
+        // Tidak terhitung dua kali: kelompok "belum lunas" hanya berisi yang
+        // sudah berinvoice.
+        $this->assertSame(0, $tugas['segera']['transaksi_belum_lunas']->count());
+        $this->assertSame(1, $tugas['ringkas']['segera']);
 
         $this->actingAs($this->timKoperasi)->get(route('koperasi.tugas.index'))
             ->assertOk()
             ->assertSee($t->nomor_transaksi)
             ->assertSee('Belum ada invoice');
+    }
+
+    /**
+     * Kasus nyata (23 Sep 2026): "Perlu Segera 150" — seluruhnya penjualan
+     * tunai yang sudah LUNAS & diambil di tempat, hanya belum dibuatkan
+     * invoice. Tidak ada yang menunggu; itu bukan tugas.
+     */
+    public function test_penjualan_lunas_tanpa_invoice_bukan_tugas(): void
+    {
+        $t = $this->jual('Lunas');
+
+        $tugas = $this->tugas();
+        $this->assertSame(0, $tugas['segera']['transaksi_tanpa_invoice']->count());
+        $this->assertSame(0, $tugas['ringkas']['segera']);
+        $this->assertSame(1, $tugas['ringkas']['beres']);
+
+        $this->actingAs($this->timKoperasi)->get(route('koperasi.tugas.index'))
+            ->assertOk()
+            ->assertDontSee($t->nomor_transaksi);
+    }
+
+    /**
+     * Perlu Segera = jumlah transaksi belum lunas — sama dengan jumlah
+     * "Transaksi belum lunas" di ringkasan Piutang untuk data yang sama —
+     * dan berubah begitu pembayarannya dicatat.
+     */
+    public function test_perlu_segera_mengikuti_pembayaran_dan_sama_dengan_piutang(): void
+    {
+        $tanpaInvoice = $this->jual('Belum Dibayar');
+        $berInvoice = $this->jual('DP');
+        $this->actingAs($this->admin)->post(route('koperasi.invoice.store', $berInvoice));
+        $this->jual('Lunas');
+
+        $ringkas = $this->tugas()['ringkas'];
+        $this->assertSame(2, $ringkas['segera']);
+        $this->assertSame(1, $ringkas['beres']);
+
+        // Dashboard Tim Koperasi: angka Tugas = halaman Tugas, dan sama
+        // dengan jumlah transaksi belum lunas di ringkasan Piutang.
+        $respon = $this->actingAs($this->timKoperasi)->get(route('dashboard'))->assertOk();
+        $this->assertSame($ringkas, $respon->viewData('ringkasTugas'));
+        $this->assertSame(2, $respon->viewData('usaha')['stats']['transaksi_belum_lunas']);
+
+        // Lunasi satu transaksi -> angkanya turun di kedua tempat.
+        $this->actingAs($this->admin)
+            ->post(route('koperasi.penjualan.pembayaran.store', $tanpaInvoice), [
+                'tanggal' => now()->toDateString(),
+                'nominal' => (int) $tanpaInvoice->fresh()->sisaPembayaran(),
+                'akun_kas_id' => \App\Models\AkunKas::aktif()->value('id'),
+                'metode' => 'Cash',
+            ])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Lunas', $tanpaInvoice->fresh()->status_pembayaran);
+
+        $this->assertSame(1, $this->tugas()['ringkas']['segera']);
+        $this->assertSame(2, $this->tugas()['ringkas']['beres']);
+        $this->assertSame(1, $this->actingAs($this->timKoperasi)->get(route('dashboard'))
+            ->viewData('usaha')['stats']['transaksi_belum_lunas']);
     }
 
     public function test_transaksi_belum_lunas_muncul_sebagai_perlu_segera(): void
