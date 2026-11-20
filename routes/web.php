@@ -509,6 +509,11 @@ Route::put('/akun/ganti-password', [AccountController::class, 'updatePassword'])
     // Backup/Restore sudah pindah ke grup 'backup-database' di bawah.
     Route::prefix('pengaturan-sistem')->name('pengaturan-sistem.')->group(function () {
         Route::get('/', [SystemSettingsController::class, 'index'])->name('index');
+        Route::post('/backup', [SystemSettingsController::class, 'storeBackup'])->name('backup.store');
+        Route::get('/backup/{filename}/download', [SystemSettingsController::class, 'downloadBackup'])->name('backup.download');
+        Route::delete('/backup/{filename}', [SystemSettingsController::class, 'destroyBackup'])->name('backup.destroy');
+        Route::get('/restore', [SystemSettingsController::class, 'showRestore'])->name('restore.show');
+        Route::post('/restore', [SystemSettingsController::class, 'restoreDatabase'])->name('restore.store');
     });
 
     // Manajemen User — akun internal.
